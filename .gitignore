@@ -1,0 +1,28 @@
+# Entorno local (nunca se sube: la URL/credenciales son por entorno)
+.env
+.env.*
+!.env.example
+
+# Dependencias y build
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+
+# Angular (se conserva del .gitignore original del repo)
+.angular/
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

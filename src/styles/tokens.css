@@ -1,0 +1,77 @@
+/**
+ * Tokens del sistema visual "utilidad clínica serena".
+ *
+ * Esta es la misma especificación que se describe en
+ * `docs/diseno/PROMPTS_STITCH.md` (sección SISTEMA VISUAL). Si el diseño
+ * aprobado en Stitch cambia un valor, se cambia AQUÍ y se propaga solo.
+ */
+:root {
+  /* Color: roles semánticos, no una paleta suelta */
+  --color-bg: #f2f5f8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eaeff4;
+  --color-text: #16232e;
+  --color-text-secondary: #55677a;
+  --color-border: #d2dbe3;
+  --color-border-strong: #b4c1cd;
+
+  --color-primary: #0b5c8c;
+  --color-primary-hover: #094a71;
+  --color-primary-active: #073a58;
+  --color-primary-soft: #e4eff7;
+  --color-on-primary: #ffffff;
+
+  --color-success: #1c7a4d;
+  --color-success-soft: #e6f3ec;
+  --color-danger: #b3261e;
+  --color-danger-soft: #fdecea;
+  --color-info: #0b5c8c;
+  --color-info-soft: #e4eff7;
+
+  --color-focus: #1d7fc0;
+  --color-disabled-bg: #edf1f5;
+  --color-disabled-text: #8a99a8;
+
+  /* Tipografía: pila del sistema, legible en pantallas de consultorio */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+
+  --text-xs: 0.75rem;   /* 12px — pies de ayuda */
+  --text-sm: 0.875rem;  /* 14px — etiquetas, errores */
+  --text-base: 1rem;    /* 16px — cuerpo y campos */
+  --text-lg: 1.25rem;   /* 20px — subtítulos */
+  --text-xl: 1.5rem;    /* 24px — título de pantalla */
+  --text-2xl: 2rem;     /* 32px — título de marca */
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.55;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Espaciado: escala de 4px */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* Superficies */
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --border-width: 1px;
+  --shadow-card: 0 1px 2px rgba(22, 35, 46, 0.06), 0 8px 24px rgba(22, 35, 46, 0.07);
+
+  /* Movimiento: solo para confirmar estado, nunca decorativo */
+  --motion-fast: 120ms;
+  --motion-base: 160ms;
+  --easing: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* Medidas */
+  --control-height: 44px;
+  --card-narrow: 26rem;
+  --card-wide: 44rem;
+}
