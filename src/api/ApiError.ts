@@ -26,23 +26,40 @@ export type ApiErrorKind =
 /** Errores por campo devueltos por la validación server-side, si los hay. */
 export type FieldErrors = Readonly<Record<string, string>>;
 
+/**
+ * Extensiones del ProblemDetail de S3 (`contrato-rest-citas`): `code` distingue causas con el
+ * mismo estado HTTP (409 `SLOT_TAKEN` frente a `BLOCK_OVERLAP`) y `field` señala el campo de un
+ * 409 `DUPLICATE`. La UI decide por `status` y `code`, nunca parseando `detail`.
+ */
+export interface ProblemExtensions {
+  code?: string | undefined;
+  field?: string | undefined;
+}
+
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   /** 0 cuando no hubo respuesta HTTP (error de red). */
   readonly status: number;
   readonly fieldErrors: FieldErrors;
+  /** Código estable del error (`SLOT_TAKEN`, `DUPLICATE`…), si el servidor lo envía. */
+  readonly code: string | undefined;
+  /** Campo en conflicto de un 409 `DUPLICATE`. */
+  readonly field: string | undefined;
 
   constructor(
     kind: ApiErrorKind,
     status: number,
     message: string,
     fieldErrors: FieldErrors = {},
+    extensions: ProblemExtensions = {},
   ) {
     super(message);
     this.name = 'ApiError';
     this.kind = kind;
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = extensions.code;
+    this.field = extensions.field;
   }
 }
 

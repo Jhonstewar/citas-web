@@ -1,39 +1,89 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
+import { AppShell } from './app/AppShell';
+import { CurrentUserProvider } from './auth/CurrentUserProvider';
 import { RequireAuth } from './auth/RequireAuth';
+import { RequireRole, RoleHomeRedirect } from './auth/RequireRole';
 import { SessionProvider } from './auth/SessionProvider';
-import { DashboardPlaceholderPage } from './pages/DashboardPlaceholderPage';
+import { ToastProvider } from './components/ToastProvider';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { LoginPage } from './pages/LoginPage';
-import { NotFoundPage } from './pages/NotFoundPage';
+import { InAppNotFoundPage, NotFoundPage } from './pages/NotFoundPage';
+import { PatientHomePage } from './pages/patient/PatientHomePage';
+import { ProfessionalHomePage } from './pages/professional/ProfessionalHomePage';
 import { RecuperarPasswordPage } from './pages/RecuperarPasswordPage';
 import { RegistroPage } from './pages/RegistroPage';
 
 /**
  * Rutas de la aplicación.
  *
- * S2 cubre autenticación (RF-01, RF-02, RF-03). Las 17 pantallas obligatorias
- * del PRD §6 se documentan en `docs/diseno/PANTALLAS_OBLIGATORIAS.md` y se
- * añaden aquí conforme se implementen.
+ * Públicas: autenticación (RF-01..03). Protegidas: un marco común (`AppShell`) con la navegación
+ * del rol y tres ramas por prefijo (HU-005 CA-08): `/paciente` (USER), `/profesional`
+ * (PROFESSIONAL) y `/admin` (ADMIN). `/` lleva al inicio del rol; una rama de otro rol muestra
+ * "Sin permiso" sin cerrar la sesión.
  */
 export function App() {
   return (
     <SessionProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegistroPage />} />
-          <Route path="/recuperar-password" element={<RecuperarPasswordPage />} />
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <DashboardPlaceholderPage />
-              </RequireAuth>
-            }
-          />
-          <Route path="/inicio" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/registro" element={<RegistroPage />} />
+            <Route path="/recuperar-password" element={<RecuperarPasswordPage />} />
+
+            <Route
+              element={
+                <RequireAuth>
+                  <CurrentUserProvider>
+                    <AppShell />
+                  </CurrentUserProvider>
+                </RequireAuth>
+              }
+            >
+              <Route index element={<RoleHomeRedirect />} />
+              <Route path="inicio" element={<Navigate to="/" replace />} />
+
+              <Route
+                path="paciente"
+                element={
+                  <RequireRole role="USER">
+                    <Outlet />
+                  </RequireRole>
+                }
+              >
+                <Route index element={<PatientHomePage />} />
+                <Route path="*" element={<InAppNotFoundPage />} />
+              </Route>
+
+              <Route
+                path="profesional"
+                element={
+                  <RequireRole role="PROFESSIONAL">
+                    <Outlet />
+                  </RequireRole>
+                }
+              >
+                <Route index element={<ProfessionalHomePage />} />
+                <Route path="*" element={<InAppNotFoundPage />} />
+              </Route>
+
+              <Route
+                path="admin"
+                element={
+                  <RequireRole role="ADMIN">
+                    <Outlet />
+                  </RequireRole>
+                }
+              >
+                <Route index element={<AdminDashboardPage />} />
+                <Route path="*" element={<InAppNotFoundPage />} />
+              </Route>
+            </Route>
+
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
     </SessionProvider>
   );
 }

@@ -193,19 +193,24 @@ describe('flujo de sesión en la aplicación', () => {
     const calls = backend({
       'POST /api/auth/login': [json(200, tokens(1))],
       'GET /api/me': [json(200, USER)],
+      'GET /api/patient/appointments': [json(200, [])],
     });
 
     render(<App />);
     logInThroughForm();
 
+    // S3: el USER aterriza en su inicio (/paciente), que muestra los datos de /api/me.
     expect(await screen.findByText('Ana Pérez')).not.toBeNull();
-    expect(screen.getByText('ana@fcv.test')).not.toBeNull();
+    expect(await screen.findByText('ana@fcv.test')).not.toBeNull();
     expect(screen.getByText('Cédula de ciudadanía 1001')).not.toBeNull();
     // El access token viajó solo, y no se volvieron a pedir credenciales.
-    expect(summary(calls)).toEqual([
-      'POST /api/auth/login sin-token',
-      'GET /api/me Bearer access-1',
-    ]);
+    await waitFor(() => {
+      expect(summary(calls)).toEqual([
+        'POST /api/auth/login sin-token',
+        'GET /api/me Bearer access-1',
+        'GET /api/patient/appointments Bearer access-1',
+      ]);
+    });
   });
 
   it('HU-003 CA-06: ante un 401 renueva, reintenta y muestra el resultado sin pedir credenciales', async () => {
@@ -213,18 +218,22 @@ describe('flujo de sesión en la aplicación', () => {
       'POST /api/auth/login': [json(200, tokens(1))],
       'GET /api/me': [json(401, { detail: 'Se requiere un access token válido' }), json(200, USER)],
       'POST /api/auth/refresh': [json(200, tokens(2))],
+      'GET /api/patient/appointments': [json(200, [])],
     });
 
     render(<App />);
     logInThroughForm();
 
     expect(await screen.findByText('Ana Pérez')).not.toBeNull();
-    expect(summary(calls)).toEqual([
-      'POST /api/auth/login sin-token',
-      'GET /api/me Bearer access-1',
-      'POST /api/auth/refresh sin-token',
-      'GET /api/me Bearer access-2',
-    ]);
+    await waitFor(() => {
+      expect(summary(calls)).toEqual([
+        'POST /api/auth/login sin-token',
+        'GET /api/me Bearer access-1',
+        'POST /api/auth/refresh sin-token',
+        'GET /api/me Bearer access-2',
+        'GET /api/patient/appointments Bearer access-2',
+      ]);
+    });
     // HU-003 CA-08: el refresh token viaja en el cuerpo, nunca en la ruta.
     expect(calls[2]?.body).toEqual({ refreshToken: 'refresh-1' });
     expect(screen.queryByRole('heading', { name: 'Inicia sesión' })).toBeNull();
@@ -240,12 +249,11 @@ describe('flujo de sesión en la aplicación', () => {
     render(<App />);
     logInThroughForm();
 
-    // Primero entra a la vista protegida; el rechazo de la renovación la expulsa.
-    await screen.findByRole('heading', { name: 'Sesión iniciada' });
+    // Primero entra a la zona protegida (que pide /api/me); el rechazo de la renovación la expulsa.
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Sesión iniciada' })).toBeNull();
+      expect(calls.some((call) => call.path === '/api/auth/refresh')).toBe(true);
     });
-    expect(screen.getByRole('heading', { name: 'Inicia sesión' })).not.toBeNull();
+    expect(await loginHeading()).not.toBeNull();
     expect(summary(calls)).toEqual([
       'POST /api/auth/login sin-token',
       'GET /api/me Bearer access-1',
@@ -257,6 +265,7 @@ describe('flujo de sesión en la aplicación', () => {
     const calls = backend({
       'POST /api/auth/login': [json(200, tokens(1))],
       'GET /api/me': [json(200, USER)],
+      'GET /api/patient/appointments': [json(200, [])],
       'POST /api/auth/logout': [new Response(null, { status: 204 })],
     });
 

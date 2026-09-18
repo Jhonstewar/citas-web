@@ -134,6 +134,15 @@ function extractFieldErrors(payload: unknown): FieldErrors {
   return result;
 }
 
+/** Extrae las extensiones `code` y `field` del ProblemDetail (contrato S3). */
+function extractExtensions(payload: unknown): { code?: string; field?: string } {
+  if (!isRecord(payload)) return {};
+  const result: { code?: string; field?: string } = {};
+  if (typeof payload.code === 'string' && payload.code !== '') result.code = payload.code;
+  if (typeof payload.field === 'string' && payload.field !== '') result.field = payload.field;
+  return result;
+}
+
 async function readBody(response: Response): Promise<unknown> {
   const text = await response.text();
   if (text.trim() === '') return null;
@@ -235,5 +244,11 @@ async function execute<TResponse>(
       ? DEFAULT_MESSAGE_BY_KIND[kind]
       : serverMessage;
 
-  throw new ApiError(kind, response.status, message, extractFieldErrors(payload));
+  throw new ApiError(
+    kind,
+    response.status,
+    message,
+    extractFieldErrors(payload),
+    extractExtensions(payload),
+  );
 }
