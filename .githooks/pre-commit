@@ -1,0 +1,29 @@
+#!/bin/sh
+# Hook pre-commit de citas-web (S3, verificacion 7 y 8): la red que dice "no".
+#   1. Escaneo de secretos en las lineas agregadas (siempre).
+#   2. typecheck + lint + pruebas si el commit toca algo mas que documentacion.
+# Las verificaciones se ejecutan sobre el arbol de trabajo, no solo sobre lo staged.
+# Instalar: .\scripts\install-hooks.ps1 desde la raiz del workspace.
+
+echo "[pre-commit] citas-web: 1/2 escaneo de secretos"
+node .githooks/secret-scan.mjs || exit 1
+
+if ! git diff --cached --name-only | grep -qvE '^docs/|\.md$'; then
+  echo "[pre-commit] citas-web: 2/2 verificaciones omitidas (el commit solo toca documentacion)"
+  exit 0
+fi
+
+run() {
+  echo "[pre-commit] citas-web: $1"
+  if ! npm run --silent "$1" > .git/pre-commit-$1.log 2>&1; then
+    echo ""
+    echo "[pre-commit] COMMIT BLOQUEADO: falla 'npm run $1'. Ultimas lineas:"
+    tail -25 .git/pre-commit-$1.log
+    echo "             Log completo: .git/pre-commit-$1.log"
+    exit 1
+  fi
+}
+run typecheck
+run lint
+run test
+echo "[pre-commit] citas-web: typecheck, lint y pruebas en verde"
