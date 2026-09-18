@@ -1,105 +1,48 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { logout as logoutRequest, refresh as refreshRequest } from '../api/authApi';
-import type { AuthTokensResponse, Role } from '../api/contracts';
-import { setAccessTokenProvider, setUnauthorizedHandler } from '../api/httpClient';
+import {
+  setAccessTokenProvider,
+  setSessionExpiredHandler,
+  setSessionRefresher,
+  setTokenStatusProvider,
+} from '../api/httpClient';
 import { SessionContext, type SessionContextValue } from './SessionContext';
+import { createSessionManager } from './sessionManager';
 
 /**
- * Contexto de sesión.
- *
- * Los tokens se guardan EN MEMORIA (estado de React + ref), no en
- * `localStorage`: así no quedan expuestos a XSS ni persisten al cerrar la
- * pestaña. Consecuencia esperada y aceptada: recargar la página cierra la
- * sesión hasta que el backend ofrezca refresh token en cookie HttpOnly.
+ * Contexto de sesión. La lógica vive en `sessionManager`; aquí solo se conecta
+ * con React y con el cliente HTTP. React solo observa si hay sesión: el token
+ * no entra en su estado, así que tampoco aparece en React DevTools.
  */
-const KNOWN_ROLES: readonly Role[] = ['USER', 'PROFESSIONAL', 'ADMIN'];
-
-/**
- * Lee el claim `roles` del access token solo para decidir qué mostrar.
- * No verifica la firma: la autorización real la impone citas-api.
- */
-function rolesFromAccessToken(token: string): Role[] {
-  try {
-    const payload = token.split('.')[1] ?? '';
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    const claims = JSON.parse(json) as { roles?: unknown };
-    if (!Array.isArray(claims.roles)) return [];
-    return claims.roles.filter((r): r is Role => KNOWN_ROLES.includes(r as Role));
-  } catch {
-    return [];
-  }
-}
-
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [manager] = useState(() =>
+    createSessionManager({ refresh: refreshRequest, logout: logoutRequest }),
+  );
+  const isAuthenticated = useSyncExternalStore(manager.subscribe, manager.isAuthenticated);
 
-  // Ref espejo del access token: el cliente HTTP debe poder leer el valor
-  // vigente sin re-suscribirse en cada render.
-  const accessTokenRef = useRef<string | null>(null);
-  const refreshTokenRef = useRef<string | null>(null);
-
-  const applyTokens = useCallback((tokens: AuthTokensResponse) => {
-    accessTokenRef.current = tokens.accessToken;
-    refreshTokenRef.current = tokens.refreshToken;
-    setAccessToken(tokens.accessToken);
-    setRoles(rolesFromAccessToken(tokens.accessToken));
-  }, []);
-
-  const signOut = useCallback(() => {
-    const refreshToken = refreshTokenRef.current;
-    if (refreshToken !== null && refreshToken !== '') {
-      // Si la revocación falla, la sesión local se cierra igual.
-      logoutRequest({ refreshToken }).catch(() => undefined);
-    }
-    accessTokenRef.current = null;
-    refreshTokenRef.current = null;
-    setAccessToken(null);
-    setRoles([]);
-  }, []);
-
-  /**
-   * Renovación del access token (RF-02).
-   *
-   * El endpoint existe y rota el token, pero aún no se invoca automáticamente.
-   * Pendiente (S3): invocarla ante un 401 (en `setUnauthorizedHandler`) o con un
-   * temporizador antes de la expiración del access token.
-   */
-  const refreshSession = useCallback(async (): Promise<boolean> => {
-    const refreshToken = refreshTokenRef.current;
-    if (refreshToken === null || refreshToken === '') return false;
-    try {
-      const tokens = await refreshRequest({ refreshToken });
-      applyTokens(tokens);
-      return true;
-    } catch {
-      signOut();
-      return false;
-    }
-  }, [applyTokens, signOut]);
-
-  // El cliente HTTP lee el token desde aquí y avisa de los 401.
+  // El cliente HTTP lee el token desde aquí, pide la renovación ante un 401 y
+  // avisa cuando un 401 ya no es recuperable.
   useEffect(() => {
-    setAccessTokenProvider(() => accessTokenRef.current);
-    setUnauthorizedHandler(() => {
-      signOut();
-    });
+    setAccessTokenProvider(manager.getAccessToken);
+    setSessionRefresher(manager.refreshSession);
+    setSessionExpiredHandler(manager.expire);
+    setTokenStatusProvider(manager.tokenStatus);
     return () => {
       setAccessTokenProvider(() => null);
-      setUnauthorizedHandler(null);
+      setSessionRefresher(null);
+      setSessionExpiredHandler(null);
+      setTokenStatusProvider(null);
     };
-  }, [signOut]);
+  }, [manager]);
 
   const value = useMemo<SessionContextValue>(
     () => ({
-      accessToken,
-      roles,
-      isAuthenticated: accessToken !== null,
-      signIn: applyTokens,
-      signOut,
-      refreshSession,
+      isAuthenticated,
+      signIn: manager.signIn,
+      signOut: manager.signOut,
+      refreshSession: manager.refreshSession,
     }),
-    [accessToken, roles, applyTokens, signOut, refreshSession],
+    [isAuthenticated, manager],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

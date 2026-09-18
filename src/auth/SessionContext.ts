@@ -1,23 +1,26 @@
 import { createContext } from 'react';
-import type { AuthTokensResponse, Role } from '../api/contracts';
+import type { AuthTokensResponse } from '../api/contracts';
 
-/** Estado de sesión expuesto a la aplicación. */
+/**
+ * Estado de sesión expuesto a la aplicación.
+ *
+ * Los tokens no se exponen: viven solo en `sessionManager` y el cliente HTTP
+ * los lee de ahí. Los datos y roles del usuario se piden a `GET /api/me`, que
+ * es la fuente verificada; el frontend no decodifica el JWT para mostrarlos.
+ */
 export interface SessionState {
-  /** Access token JWT. Vive SOLO en memoria (ver `SessionProvider`). */
-  accessToken: string | null;
-  /** Roles conocidos del usuario. El frontend los muestra; no autoriza con ellos. */
-  roles: Role[];
   isAuthenticated: boolean;
 }
 
 export interface SessionContextValue extends SessionState {
-  /** Registra los tokens devueltos por login/registro. */
+  /** Registra los tokens devueltos por el login. */
   signIn: (tokens: AuthTokensResponse) => void;
-  /** Limpia la sesión en memoria. */
+  /** Cierra la sesión local y revoca el refresh token en el servidor. */
   signOut: () => void;
   /**
    * Renueva el access token usando el refresh token.
-   * Devuelve `true` si la sesión quedó renovada.
+   * `true` si la sesión quedó renovada, `false` si fue rechazada; lanza si no
+   * hubo respuesta del servidor.
    */
   refreshSession: () => Promise<boolean>;
 }

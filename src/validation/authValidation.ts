@@ -42,11 +42,15 @@ export const EMPTY_REGISTER_FORM: RegisterFormValues = {
   passwordConfirm: '',
 };
 
-/** Longitudes tomadas del modelo de datos de referencia (tabla `users`). */
-const MAX_NAMES = 120;
-const MAX_DOCUMENT_NUMBER = 32;
-const MAX_EMAIL = 254;
-const MAX_PHONE = 32;
+/**
+ * Longitudes máximas que acepta el backend (`RegisterRequest` de citas-api, que
+ * coincide con las columnas de `users` en la migración V1). Si el cliente
+ * aceptara más, el usuario solo se enteraría al recibir el 400 del servidor.
+ */
+export const MAX_NAMES = 100;
+export const MAX_DOCUMENT_NUMBER = 20;
+export const MAX_EMAIL = 160;
+export const MAX_PHONE = 30;
 const MIN_PASSWORD = 8;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
