@@ -215,7 +215,7 @@ export function ProfessionalCreatePage() {
             <TextField
               label="Código profesional"
               required
-              maxLength={40}
+              maxLength={30}
               hint="No se podrá cambiar después del alta."
               {...text('professionalCode')}
             />

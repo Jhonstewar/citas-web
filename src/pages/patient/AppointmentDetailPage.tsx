@@ -13,12 +13,13 @@ import type { ReactNode } from 'react';
 import { useParams } from 'react-router';
 import type { HistoryEntry, HistorySource } from '../../api/contracts';
 import { getMyAppointment } from '../../api/patientApi';
+import { notFound } from '../../lib/notFound';
 import { Card } from '../../components/Card';
 import { ErrorState } from '../../components/ErrorState';
 import { PageHeader } from '../../components/PageHeader';
 import { LoadingSection } from '../../components/Skeleton';
 import { StatusBadge } from '../../components/StatusBadge';
-import { formatDateTime, formatLongDate } from '../../lib/dates';
+import { formatDateTime, formatLongDate, parseBogotaDateTime } from '../../lib/dates';
 import { statusLabel } from '../../lib/status';
 import { useResource } from '../../lib/useResource';
 
@@ -37,7 +38,11 @@ const SOURCE_LABEL: Readonly<Record<HistorySource, string>> = {
 export function AppointmentDetailPage() {
   const params = useParams();
   const id = Number(params.id);
-  const detail = useResource((signal) => getMyAppointment(id, signal), [id]);
+  // Un id no numérico no se pide al backend (evita GET /NaN): se trata como no encontrado.
+  const detail = useResource(
+    (signal) => (Number.isInteger(id) && id > 0 ? getMyAppointment(id, signal) : Promise.reject(notFound())),
+    [id],
+  );
 
   const back = { to: '/paciente/citas', label: 'Mis citas' };
 
@@ -66,7 +71,10 @@ export function AppointmentDetailPage() {
 
   const appointment = detail.state.data;
   const reason = appointment.rejectionReason?.trim() ?? '';
-  const history = [...(appointment.history ?? [])].sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+  const history = [...(appointment.history ?? [])].sort(
+    (a, b) =>
+      (parseBogotaDateTime(a.changedAt)?.getTime() ?? 0) - (parseBogotaDateTime(b.changedAt)?.getTime() ?? 0),
+  );
 
   return (
     <div className="page">

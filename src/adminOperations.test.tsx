@@ -58,7 +58,7 @@ function request(id: number, patient: string) {
       professional: { id: 10, fullName: 'Andrés Rincón' },
       specialty: { id: 2, code: 'CARDIOLOGIA', name: 'Cardiología', appointmentType: 'SPECIALIZED', durationMinutes: 60 },
       rejectionReason: null,
-      createdAt: '2099-09-20T10:00:00Z',
+      createdAt: '2099-09-20T10:00:00',
       history: [],
       patient: { id: 5, fullName: patient, documentType: 'CC', documentNumber: '123', email: 'p@fcv.test', phone: '300' },
     },
@@ -423,3 +423,79 @@ describe('profesionales', () => {
   });
 });
 
+
+describe('correcciones de la verificación independiente', () => {
+  it('F1: un profesional sin teléfono (el backend omite nulos) se edita y guarda sin error', async () => {
+    const { phone: _omitted, ...withoutPhone } = PROFESSIONAL;
+    const calls = await openAs(
+      '/admin/profesionales/10',
+      adminScript({
+        'GET /api/admin/professionals/10': json(200, withoutPhone),
+        'PUT /api/admin/professionals/10': json(200, { ...withoutPhone, firstNames: 'Andrés Felipe' }),
+      }),
+      'Andrés Rincón',
+    );
+
+    expect((screen.getByLabelText(/^Teléfono/) as HTMLInputElement).value).toBe('');
+    fireEvent.change(screen.getByLabelText(/^Nombres/), { target: { value: 'Andrés Felipe' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar datos' }));
+
+    expect(await screen.findByText('Datos actualizados')).not.toBeNull();
+    expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({
+      firstNames: 'Andrés Felipe',
+      lastNames: 'Rincón',
+      phone: '',
+    });
+  });
+
+  it('M7: un 409 al rechazar cierra el modal, informa y recarga la bandeja', async () => {
+    const calls = await openAs(
+      '/admin/solicitudes',
+      adminScript({
+        'GET /api/admin/inbox': [json(200, [request(1, 'Laura Gómez')]), json(200, [])],
+        'POST /api/admin/appointments/1/reject': problem(409, 'La solicitud ya fue decidida', {
+          code: 'INVALID_TRANSITION',
+        }),
+      }),
+      'Solicitudes pendientes',
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rechazar solicitud de Laura Gómez' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Rechazar solicitud' });
+    fireEvent.change(within(dialog).getByLabelText(/Motivo del rechazo/), { target: { value: 'Sin agenda' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rechazar solicitud' }));
+
+    expect(await screen.findByText('La solicitud ya fue decidida')).not.toBeNull();
+    expect(screen.getByText('La solicitud ya no se puede decidir')).not.toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => {
+      expect(calls.filter((call) => call.path === '/api/admin/inbox')).toHaveLength(2);
+    });
+    expect(await screen.findByText('¡Todo al día! No hay solicitudes pendientes')).not.toBeNull();
+  });
+
+  it('M11: el alta no ofrece especialidades inactivas', async () => {
+    await openAs(
+      '/admin/profesionales/nuevo',
+      adminScript({
+        'GET /api/catalogs/document-types': json(200, [{ code: 'CC', name: 'Cédula de ciudadanía' }]),
+        'GET /api/admin/specialties': json(200, [
+          GENERAL,
+          CARDIO,
+          { ...CARDIO, id: 3, code: 'DERMATOLOGIA', name: 'Dermatología', active: false },
+        ]),
+      }),
+      'Nuevo profesional',
+    );
+
+    expect(screen.getByRole('checkbox', { name: /Cardiología/ })).not.toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /Dermatología/ })).toBeNull();
+    expect(screen.queryByText('Dermatología')).toBeNull();
+  });
+
+  it('una ruta de profesional con id no numérico muestra "no encontrado" sin pedir /NaN', async () => {
+    const calls = await openAs('/admin/profesionales/abc', adminScript(), 'Editar profesional');
+    expect(await screen.findByText('No encontramos este profesional')).not.toBeNull();
+    expect(calls.some((call) => call.path.includes('NaN') || call.path.endsWith('/abc'))).toBe(false);
+  });
+});

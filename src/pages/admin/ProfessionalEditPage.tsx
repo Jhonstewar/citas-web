@@ -21,6 +21,7 @@ import { LoadingSection } from '../../components/Skeleton';
 import { Badge } from '../../components/StatusBadge';
 import { TextField } from '../../components/TextField';
 import { useToast } from '../../components/toastContext';
+import { notFound } from '../../lib/notFound';
 import { useResource } from '../../lib/useResource';
 import { SitePicker, SpecialtyPicker, type SpecialtySelection } from './professionalPickers';
 
@@ -40,7 +41,10 @@ export function ProfessionalEditPage() {
   const toast = useToast();
   const data = useResource(
     (signal) =>
-      Promise.all([getProfessional(id, signal), listSpecialties(signal), getSites(signal)]).then(
+      // Un id no numérico no se pide al backend (evita GET /NaN).
+      !Number.isInteger(id) || id <= 0
+        ? Promise.reject(notFound())
+        : Promise.all([getProfessional(id, signal), listSpecialties(signal), getSites(signal)]).then(
         ([professional, specialties, sites]): EditData => ({ professional, specialties, sites }),
       ),
     [id],
@@ -206,7 +210,7 @@ function PersonalSection({
 }) {
   const [firstNames, setFirstNames] = useState(professional.firstNames);
   const [lastNames, setLastNames] = useState(professional.lastNames);
-  const [phone, setPhone] = useState(professional.phone);
+  const [phone, setPhone] = useState(professional.phone ?? '');
   const { saving, failure, run } = useSectionSave(onSaved);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

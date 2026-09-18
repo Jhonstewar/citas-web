@@ -190,7 +190,7 @@ function OfferGroups({
 
   return (
     <div className="stack">
-      {professionals.length > 1 ? (
+      {professionals.length > 1 || professionalId !== null ? (
         <div className="stack stack--sm">
           <p className="field__label" id="filtro-profesional">
             Profesional
@@ -217,6 +217,20 @@ function OfferGroups({
             ))}
           </div>
         </div>
+      ) : null}
+
+      {visible.length === 0 ? (
+        <EmptyState
+          compact
+          icon={<CalendarX size={32} />}
+          title="Este profesional no tiene horarios ese día"
+          description="Elige otro profesional o “Cualquiera”."
+          action={
+            <button type="button" className="button button--ghost" onClick={() => onProfessionalChange(null)}>
+              Ver todos los profesionales
+            </button>
+          }
+        />
       ) : null}
 
       {[...groups.entries()].map(([key, group]) => {

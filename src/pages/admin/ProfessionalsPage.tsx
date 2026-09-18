@@ -112,7 +112,7 @@ export function ProfessionalsPage() {
             <Badge
               key={specialty.id}
               tone={specialty.primary ? 'info' : 'neutral'}
-              icon={specialty.primary ? <Star size={12} aria-label="Principal" /> : undefined}
+              icon={specialty.primary ? <Star size={12} role="img" aria-label="Principal" /> : undefined}
             >
               {specialty.name}
             </Badge>

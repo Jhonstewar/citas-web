@@ -76,7 +76,10 @@ export function AgendaPage() {
       setToDelete(null);
       toast.show({ title: 'Bloque eliminado' });
     } catch (cause) {
-      setDeleteError(toApiError(cause).message);
+      const error = toApiError(cause);
+      setDeleteError(error.message);
+      // El bloque cambió en el servidor (p. ej. recibió una reserva): se refresca la agenda.
+      if (error.status === 409) blocks.reload({ silent: true });
     } finally {
       setDeleting(false);
     }
@@ -138,7 +141,7 @@ export function AgendaPage() {
         </h2>
       </div>
 
-      <div className="legend" aria-label="Leyenda">
+      <div className="legend" role="note" aria-label="Leyenda">
         <span className="legend__item">
           <span className="legend__swatch slot--free" aria-hidden="true" /> Libre
         </span>

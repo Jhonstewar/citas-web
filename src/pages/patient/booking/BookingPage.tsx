@@ -176,6 +176,8 @@ export function BookingPage() {
       if (error.status === 409 && (error.code === undefined || error.code === ERROR_CODES.slotTaken)) {
         // Otra reserva ganó la franja: se recargan los horarios y se deja elegir otra.
         setOffer(null);
+        // El profesional filtrado puede haberse quedado sin franjas: se vuelve a "Cualquiera".
+        setProfessionalId(null);
         setReloadKey((key) => key + 1);
         setStep(3);
         setOutcome({ kind: 'slot-taken', message: error.message });
@@ -269,7 +271,8 @@ export function BookingPage() {
             onChange={chooseType}
             options={types.map((item) => ({
               value: item.code,
-              label: `Cita ${item.name.toLocaleLowerCase('es')}`,
+              // El catálogo ya trae el nombre completo ("Cita general"): se usa tal cual.
+              label: item.name,
               icon: item.code === 'GENERAL' ? <Stethoscope size={22} /> : <HeartPulse size={22} />,
               description: item.requiresAdminApproval
                 ? 'Requiere aprobación de un administrador. Tu horario queda apartado mientras la revisa.'

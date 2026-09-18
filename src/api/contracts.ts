@@ -3,7 +3,7 @@
  *
  * Reconciliado el 2026-09-16 contra citas-api (GOAL_01: HU-001..004).
  * S3 (2026-09-18): catálogos, profesionales, agenda y citas según `contrato-rest-citas.md`
- * (Provisional: el backend de S3 se implementa en paralelo con el mismo contrato).
+ * (Vigente). Fechas y horas LocalDateTime sin zona, en hora de America/Bogota.
  * Ninguna ruta ni tipo de payload REST vive fuera de este archivo.
  * Errores: ProblemDetail (RFC 9457) con `detail`; los 400 añaden `fieldErrors`.
  * Pendiente: recuperación de contraseña (RF-03) aún no existe en el backend.
@@ -282,7 +282,8 @@ export interface PatientRef {
   documentType: string;
   documentNumber: string;
   email: string;
-  phone: string;
+  /** Omitido si es nulo (el backend usa `non_null` y guarda null si llega en blanco). */
+  phone?: string;
 }
 
 export interface ProfessionalSpecialty extends SpecialtyRef {
@@ -298,7 +299,8 @@ export interface Professional {
   documentType: string;
   documentNumber: string;
   email: string;
-  phone: string;
+  /** Omitido si es nulo (el backend usa `non_null` y guarda null si llega en blanco). */
+  phone?: string;
   professionalCode: string;
   licenseNumber: string;
   active: boolean;
@@ -334,14 +336,10 @@ export interface Offer {
   durationMinutes: DurationMinutes;
 }
 
-/**
- * Día con oferta de `GET /api/patient/availability/days`.
- * ⚠️ El contrato dice `{ date, offers }` sin precisar el tipo de `offers`: se asume el número de
- * franjas, pero se acepta también la lista de ofertas (ver `offerCount` en `patientApi`).
- */
+/** Día con oferta de `GET /api/patient/availability/days`: `offers` es el número de franjas. */
 export interface AvailabilityDay {
   date: IsoDate;
-  offers: number | Offer[];
+  offers: number;
 }
 
 export interface Appointment {

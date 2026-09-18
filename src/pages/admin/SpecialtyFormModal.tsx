@@ -118,7 +118,7 @@ function SpecialtyForm({ specialty, onClose, onSaved }: SpecialtyFormModalProps)
         <TextField
           label="Nombre"
           required
-          maxLength={100}
+          maxLength={120}
           value={name}
           error={errors.name}
           disabled={saving}

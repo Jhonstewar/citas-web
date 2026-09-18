@@ -32,9 +32,9 @@ export function availabilityDays(
   return request(withQuery(API_ROUTES.patient.availabilityDays, { ...query }), withSignal(signal));
 }
 
-/** Número de franjas de un día, tanto si el backend manda un número como una lista. */
+/** Número de franjas de un día. */
 export function offerCount(day: AvailabilityDay): number {
-  return Array.isArray(day.offers) ? day.offers.length : Number(day.offers) || 0;
+  return Number.isFinite(day.offers) ? day.offers : 0;
 }
 
 /**

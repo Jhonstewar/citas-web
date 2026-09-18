@@ -95,10 +95,41 @@ export function formatRange(from: IsoDate, to: IsoDate): string {
   })}`;
 }
 
-/** Fecha y hora de un instante ISO (historial), en la zona del sistema. */
-export function formatDateTime(instant: string): string {
-  const value = new Date(instant);
-  if (Number.isNaN(value.getTime())) return instant;
+/** Desfase fijo de Bogotá: Colombia no tiene horario de verano. */
+const BOGOTA_UTC_OFFSET_HOURS = 5;
+
+/** LocalDateTime de Java: `2026-09-21T08:00`, `…:00` o `…:00.123456`, sin zona. */
+const LOCAL_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/;
+
+/**
+ * Instante de un `createdAt`/`changedAt` del backend. Llegan como LocalDateTime SIN zona en
+ * hora de America/Bogota; `new Date(texto)` los leería en la zona del navegador. Un texto con
+ * zona explícita (`Z`, `-05:00`) se respeta. `null` si no se reconoce.
+ */
+export function parseBogotaDateTime(value: string): Date | null {
+  const match = LOCAL_DATE_TIME.exec(value.trim());
+  if (match !== null) {
+    const [, year, month, day, hour, minute, second = '0'] = match;
+    return new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour) + BOGOTA_UTC_OFFSET_HOURS,
+        Number(minute),
+        Number(second),
+      ),
+    );
+  }
+  if (!/[zZ]$|[+-]\d{2}:?\d{2}$/.test(value.trim())) return null;
+  const instant = new Date(value);
+  return Number.isNaN(instant.getTime()) ? null : instant;
+}
+
+/** «20 de sept de 2026, 23:30»: siempre en hora de Bogotá, sea cual sea la zona del navegador. */
+export function formatDateTime(value: string): string {
+  const instant = parseBogotaDateTime(value);
+  if (instant === null) return value;
   return new Intl.DateTimeFormat(LOCALE, {
     timeZone: APP_TIME_ZONE,
     day: 'numeric',
@@ -106,7 +137,8 @@ export function formatDateTime(instant: string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(value);
+    hourCycle: 'h23',
+  }).format(instant);
 }
 
 export function toMinutes(time: HourMinute): number {

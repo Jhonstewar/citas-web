@@ -11,6 +11,7 @@ import {
   type Call,
   type Script,
 } from './test/fakeBackend';
+import { setTimeZone } from './test/timeZone';
 
 /**
  * Paciente (HU-022..025): asistente de reserva general y especializada, 409 SLOT_TAKEN con
@@ -62,7 +63,7 @@ function appointment(status: string, statusName: string, extra: Record<string, u
     professional: RINCON,
     specialty: { id: 1, code: 'MEDICINA_GENERAL', name: 'Medicina General', appointmentType: 'GENERAL', durationMinutes: 30 },
     rejectionReason: null,
-    createdAt: '2026-09-21T13:00:00Z',
+    createdAt: '2026-09-21T08:00:00.123456',
     ...extra,
   };
 }
@@ -72,8 +73,8 @@ function bookingScript(extra: Script = {}): Script {
     ...sessionScript('USER'),
     'GET /api/patient/appointments': json(200, []),
     'GET /api/catalogs/appointment-types': json(200, [
-      { code: 'GENERAL', name: 'General', requiresAdminApproval: false },
-      { code: 'SPECIALIZED', name: 'Especializada', requiresAdminApproval: true },
+      { code: 'GENERAL', name: 'Cita general', requiresAdminApproval: false },
+      { code: 'SPECIALIZED', name: 'Cita especializada', requiresAdminApproval: true },
     ]),
     'GET /api/catalogs/specialties': json(200, [GENERAL, CARDIO]),
     'GET /api/catalogs/sites': json(200, [
@@ -122,6 +123,10 @@ describe('asistente de reserva', () => {
       }),
     );
 
+    // F2: el nombre del catálogo se usa tal cual ("Cita general"), sin duplicar "Cita".
+    expect(screen.queryByText(/Cita cita/i)).toBeNull();
+    expect(screen.getByText('Cita general', { selector: '.choice__label' })).not.toBeNull();
+    expect(screen.getByText('Cita especializada', { selector: '.choice__label' })).not.toBeNull();
     // "Continuar" no avanza sin elegir.
     expect(screen.getByRole('button', { name: /Continuar/ }).hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByRole('radio', { name: /Cita general/ }));
@@ -210,6 +215,32 @@ describe('asistente de reserva', () => {
     expect(posts.map((call) => (call.body as { startTime: string }).startTime)).toEqual(['08:00', '09:00']);
   });
 
+  it('F4: tras un 409 con filtro de profesional, el filtro se reinicia y no queda una lista vacía', async () => {
+    await startBooking(
+      bookingScript({
+        'GET /api/patient/availability': [
+          json(200, [offer(RINCON, HIC, GENERAL, '08:00', '08:30'), offer(SERRANO, ICV, GENERAL, '09:00', '09:30')]),
+          // Serrano ya no tiene franjas ese día.
+          json(200, [offer(RINCON, HIC, GENERAL, '08:00', '08:30'), offer(RINCON, HIC, GENERAL, '10:00', '10:30')]),
+        ],
+        'POST /api/patient/appointments/general': problem(409, 'La franja ya no está disponible', { code: 'SLOT_TAKEN' }),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /Cita general/ }));
+    continueWizard();
+    continueWizard();
+    fireEvent.click(await screen.findByRole('button', { name: 'Paula Serrano' }));
+    expect(screen.queryByRole('button', { name: /^08:00 a 08:30/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^09:00 a 09:30/ }));
+    continueWizard();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar cita' }));
+
+    expect(await screen.findByText('Esa franja acaba de ser tomada por otra persona.')).not.toBeNull();
+    expect(await screen.findByRole('button', { name: /^10:00 a 10:30/ })).not.toBeNull();
+    expect(screen.getByRole('button', { name: /^08:00 a 08:30/ })).not.toBeNull();
+  });
+
   it('422: muestra el detail del servidor y se queda en la confirmación', async () => {
     await startBooking(
       bookingScript({
@@ -270,15 +301,22 @@ describe('mis citas y detalle', () => {
         appointment('REJECTED', 'Rechazada', {
           rejectionReason: 'El profesional no atiende ese día',
           history: [
-            { status: 'REQUESTED', statusName: 'Solicitada', source: 'USER', actorName: 'Laura Gómez', reason: null, changedAt: '2026-09-20T15:00:00Z' },
-            { status: 'REJECTED', statusName: 'Rechazada', source: 'ADMIN', actorName: 'Marta Ruiz', reason: 'El profesional no atiende ese día', changedAt: '2026-09-21T12:00:00Z' },
+            { status: 'REQUESTED', statusName: 'Solicitada', source: 'USER', actorName: 'Laura Gómez', reason: null, changedAt: '2026-09-20T10:00:00' },
+            { status: 'REJECTED', statusName: 'Rechazada', source: 'ADMIN', actorName: 'Marta Ruiz', reason: 'El profesional no atiende ese día', changedAt: '2026-09-21T07:15:30.5' },
           ],
         }),
       ),
     });
-    await renderLoggedIn('Laura Gómez', '/paciente/citas/99');
-
-    expect(await screen.findByText('Motivo del rechazo:')).not.toBeNull();
+    const restoreTimeZone = setTimeZone('Asia/Tokyo');
+    try {
+      await renderLoggedIn('Laura Gómez', '/paciente/citas/99');
+      expect(await screen.findByText('Motivo del rechazo:')).not.toBeNull();
+      // F3: LocalDateTime sin zona = hora de Bogotá, con el navegador en Tokio.
+      expect(screen.getByText('por ti · 20 de sept de 2026, 10:00')).not.toBeNull();
+      expect(screen.getByText('por Marta Ruiz · 21 de sept de 2026, 07:15')).not.toBeNull();
+    } finally {
+      restoreTimeZone();
+    }
     expect(screen.getAllByText(/El profesional no atiende ese día/).length).toBeGreaterThan(0);
     expect(screen.getByText(/por Marta Ruiz/)).not.toBeNull();
     expect(screen.getByText(/por ti/)).not.toBeNull();
