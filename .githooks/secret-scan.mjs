@@ -40,8 +40,9 @@ const ASSIGNMENT = [
   { name: 'credencial en configuracion', files: /\.(ya?ml|properties|env|conf|ini|toml)$|(^|\/)docker-compose[^/]*$/i,
     re: new RegExp(String.raw`^\s*[\w.-]*${KEY}[\w.-]*\s*[:=]\s*["']?([^\s"'#]+)`, 'i') },
   // Java, TS, JS:  String password = "valor"   |   apiKey: 'valor'
+  // El valor no lleva espacios ni '/': asi se descartan mensajes de UI ("Repite la contrasena.") y rutas.
   { name: 'credencial literal en codigo', files: /\.(java|kt|ts|tsx|js|jsx|mjs|cjs)$/i,
-    re: new RegExp(String.raw`[\w]*${KEY}[\w]*["']?\s*[:=]\s*["']([^"']{8,})["']`, 'i') },
+    re: new RegExp(String.raw`[\w]*${KEY}[\w]*["']?\s*[:=]\s*["']([^"'\s/]{8,})["']`, 'i') },
 ];
 const TEST_OR_TEMPLATE = /(^|\/)src\/test\/|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|\.example$|(^|\/)docs\//;
 // Valores que no son secretos: referencias a variables, marcadores y ficticios declarados.
