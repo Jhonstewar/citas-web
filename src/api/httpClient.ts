@@ -12,6 +12,9 @@ import {
  * - Llama DIRECTAMENTE a la API REST de Spring Boot (sin Express, BFF ni proxy).
  * - Toma la URL base de `VITE_API_URL`.
  * - Adjunta `Authorization: Bearer <accessToken>` cuando hay sesión.
+ * - Ante un 401 sobre una petición autenticada renueva la sesión y reintenta
+ *   una sola vez (HU-003 CA-06); si la renovación es rechazada, cierra la
+ *   sesión (HU-003 CA-07).
  * - Clasifica el resultado por código de estado en vez de colapsarlo en "Error".
  */
 
@@ -27,7 +30,7 @@ export interface RequestOptions {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Suministro del access token                                                */
+/* Suministro del access token y renovación                                   */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -36,15 +39,58 @@ export interface RequestOptions {
  * ni crear una dependencia circular con React.
  */
 let accessTokenProvider: () => string | null = () => null;
-let unauthorizedHandler: (() => void) | null = null;
+
+/**
+ * Renovador de sesión. Devuelve `true` si dejó un access token nuevo listo en
+ * el proveedor y `false` si la renovación fue rechazada; lanza si no hubo
+ * respuesta, y ese error se propaga sin cerrar la sesión. Lo instala
+ * `SessionProvider`, que además garantiza que varias peticiones que fallan a
+ * la vez compartan una única renovación en vuelo (DoD de HU-003).
+ */
+let sessionRefresher: (() => Promise<boolean>) | null = null;
+
+/**
+ * Se invoca con el access token que recibió un 401 ya no recuperable. Cierra
+ * la sesión en un solo lugar, y solo si ese token sigue siendo el vigente.
+ */
+let sessionExpiredHandler: ((rejectedAccessToken: string) => void) | null = null;
+
+/**
+ * Relación de un access token con la sesión vigente:
+ * - `current`: es el token actual;
+ * - `renewed`: es de esta misma sesión, pero otra petición ya lo renovó;
+ * - `foreign`: es de una sesión que ya se cerró (logout, o logout y login nuevo).
+ */
+export type TokenStatus = 'current' | 'renewed' | 'foreign';
+
+/**
+ * Sin sesión instalada solo se sabe si el token es el actual. Si ya no hay token, la sesión se
+ * cerró; si hay otro, se asume que se renovó.
+ */
+function defaultTokenStatus(token: string): TokenStatus {
+  const current = accessTokenProvider();
+  if (current === token) return 'current';
+  return current === null || current === '' ? 'foreign' : 'renewed';
+}
+
+let tokenStatusProvider: (token: string) => TokenStatus = defaultTokenStatus;
 
 export function setAccessTokenProvider(provider: () => string | null): void {
   accessTokenProvider = provider;
 }
 
-/** Se invoca ante un 401 para que la sesión se cierre en un solo lugar. */
-export function setUnauthorizedHandler(handler: (() => void) | null): void {
-  unauthorizedHandler = handler;
+export function setSessionRefresher(refresher: (() => Promise<boolean>) | null): void {
+  sessionRefresher = refresher;
+}
+
+export function setSessionExpiredHandler(
+  handler: ((rejectedAccessToken: string) => void) | null,
+): void {
+  sessionExpiredHandler = handler;
+}
+
+export function setTokenStatusProvider(provider: ((token: string) => TokenStatus) | null): void {
+  tokenStatusProvider = provider ?? defaultTokenStatus;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -65,55 +111,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * Extrae el mensaje legible del cuerpo de error.
- *
- * RECONCILIAR: se cubren las formas habituales de Spring Boot (`message`,
- * `detail` de RFC 7807, `error`). Cuando citas-api fije su formato de error,
- * recortar esta función a esa forma.
+/*
+ * Todos los errores de citas-api, incluidos los 401/403 de la cadena de
+ * seguridad, son `ProblemDetail` (RFC 9457): el mensaje legible va en `detail`
+ * y los 400 de validación añaden `fieldErrors: { campo: mensaje }`.
  */
+
+/** Extrae el mensaje legible (`detail`) del cuerpo de error. */
 function extractMessage(payload: unknown): string | null {
-  if (typeof payload === 'string' && payload.trim() !== '') return payload.trim();
   if (!isRecord(payload)) return null;
-  const keys = ['message', 'detail', 'error_description', 'error'] as const;
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === 'string' && value.trim() !== '') return value.trim();
-  }
-  return null;
+  const detail = payload.detail;
+  return typeof detail === 'string' && detail.trim() !== '' ? detail.trim() : null;
 }
 
-/**
- * Extrae errores por campo de la validación server-side.
- *
- * RECONCILIAR: se aceptan `fieldErrors: { campo: mensaje }`, el array `errors:
- * [{ field, defaultMessage }]` de Spring y `violations: [{ field, message }]`.
- */
+/** Extrae `fieldErrors` de la validación server-side. */
 function extractFieldErrors(payload: unknown): FieldErrors {
-  if (!isRecord(payload)) return {};
+  if (!isRecord(payload) || !isRecord(payload.fieldErrors)) return {};
   const result: Record<string, string> = {};
-
-  const direct = payload.fieldErrors;
-  if (isRecord(direct)) {
-    for (const [field, message] of Object.entries(direct)) {
-      if (typeof message === 'string') result[field] = message;
-    }
+  for (const [field, message] of Object.entries(payload.fieldErrors)) {
+    if (typeof message === 'string') result[field] = message;
   }
-
-  const listKeys = ['errors', 'violations'] as const;
-  for (const key of listKeys) {
-    const list = payload[key];
-    if (!Array.isArray(list)) continue;
-    for (const item of list) {
-      if (!isRecord(item)) continue;
-      const field = item.field ?? item.propertyPath ?? item.name;
-      const message = item.defaultMessage ?? item.message ?? item.error;
-      if (typeof field === 'string' && typeof message === 'string') {
-        result[field] = message;
-      }
-    }
-  }
-
   return result;
 }
 
@@ -135,15 +152,35 @@ export async function request<TResponse>(
   path: string,
   options: RequestOptions = {},
 ): Promise<TResponse> {
+  return execute<TResponse>(path, options, true);
+}
+
+/**
+ * Ejecuta la petición.
+ *
+ * `allowRefresh` vale `false` en el reintento que sigue a una renovación: así
+ * un segundo 401 se propaga como sesión terminada en vez de encadenar
+ * renovaciones indefinidamente.
+ */
+async function execute<TResponse>(
+  path: string,
+  options: RequestOptions,
+  allowRefresh: boolean,
+): Promise<TResponse> {
   const { method = 'GET', body, authenticated = true, signal } = options;
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
+  // Solo un 401 sobre una petición que SÍ llevaba token significa "el access
+  // token expiró". Sin esta marca, el 401 de credenciales inválidas del login
+  // dispararía una renovación que no tiene ningún sentido.
+  let sentToken: string | null = null;
   if (authenticated) {
     const token = accessTokenProvider();
     if (token !== null && token !== '') {
       headers.Authorization = `Bearer ${token}`;
+      sentToken = token;
     }
   }
 
@@ -166,10 +203,28 @@ export async function request<TResponse>(
     return payload as TResponse;
   }
 
+  // HU-003 CA-06 — renovación transparente. El cuerpo se vuelve a serializar
+  // desde `options.body` en cada intento, así que el reintento no depende de un
+  // stream ya consumido; por eso tampoco se lee el cuerpo del 401 antes de
+  // decidir.
+  if (response.status === 401 && sentToken !== null && allowRefresh && signal?.aborted !== true) {
+    const status = tokenStatusProvider(sentToken);
+    // Otra petición ya renovó mientras esta viajaba con el token anterior:
+    // basta con reintentar, sin rotar otra vez el refresh token.
+    if (status === 'renewed') return execute<TResponse>(path, options, false);
+    // Solo se renueva la sesión que envió el token. El 401 de una sesión ya cerrada
+    // (`foreign`) no se reintenta: se ejecutaría con la identidad de otra sesión.
+    if (status === 'current' && sessionRefresher !== null && (await sessionRefresher())) {
+      return execute<TResponse>(path, options, false);
+    }
+  }
+
   const payload = await readBody(response);
   const kind = kindForStatus(response.status);
 
-  if (kind === 'session') unauthorizedHandler?.();
+  // HU-003 CA-07 — no se pudo renovar o la renovación fue rechazada: la sesión
+  // termina aquí y `RequireAuth` devuelve al login.
+  if (kind === 'session' && sentToken !== null) sessionExpiredHandler?.(sentToken);
 
   // El mensaje del servidor manda en 400/409: es el que explica el problema
   // real ("el email ya está registrado"). En 5xx no se expone tal cual porque

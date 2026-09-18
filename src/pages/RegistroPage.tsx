@@ -10,6 +10,10 @@ import { SubmitButton } from '../components/SubmitButton';
 import { TextField } from '../components/TextField';
 import {
   EMPTY_REGISTER_FORM,
+  MAX_DOCUMENT_NUMBER,
+  MAX_EMAIL,
+  MAX_NAMES,
+  MAX_PHONE,
   hasErrors,
   isDocumentTypeCode,
   validateRegisterForm,
@@ -91,7 +95,7 @@ export function RegistroPage() {
         password: values.password,
       });
       setStatus('success');
-      // HU-001 no incluye auto-login: se envía al login con el email precargado.
+      // HU-001 no incluye auto-login: se envía al login, que confirma el alta con un aviso.
       void navigate('/login', { replace: true, state: { registeredEmail: values.email.trim() } });
     } catch (cause) {
       const error = toApiError(cause);
@@ -130,7 +134,7 @@ export function RegistroPage() {
             label="Nombres"
             name="firstNames"
             autoComplete="given-name"
-            maxLength={120}
+            maxLength={MAX_NAMES}
             required
             value={values.firstNames}
             error={fieldErrors.firstNames}
@@ -141,7 +145,7 @@ export function RegistroPage() {
             label="Apellidos"
             name="lastNames"
             autoComplete="family-name"
-            maxLength={120}
+            maxLength={MAX_NAMES}
             required
             value={values.lastNames}
             error={fieldErrors.lastNames}
@@ -163,7 +167,7 @@ export function RegistroPage() {
             label="Número de documento"
             name="documentNumber"
             inputMode="numeric"
-            maxLength={32}
+            maxLength={MAX_DOCUMENT_NUMBER}
             required
             value={values.documentNumber}
             error={fieldErrors.documentNumber}
@@ -176,7 +180,7 @@ export function RegistroPage() {
             name="email"
             autoComplete="email"
             inputMode="email"
-            maxLength={254}
+            maxLength={MAX_EMAIL}
             required
             hint="Lo usarás para iniciar sesión."
             value={values.email}
@@ -190,7 +194,7 @@ export function RegistroPage() {
             name="phone"
             autoComplete="tel"
             inputMode="tel"
-            maxLength={32}
+            maxLength={MAX_PHONE}
             required
             value={values.phone}
             error={fieldErrors.phone}

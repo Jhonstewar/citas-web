@@ -3,17 +3,24 @@
  *
  * Reconciliado el 2026-09-16 contra citas-api (GOAL_01: HU-001..004).
  * Ninguna ruta ni tipo de payload REST vive fuera de este archivo.
- * Errores: ProblemDetail (RFC 7807) con `detail`; los 400 añaden `fieldErrors`.
+ * Errores: ProblemDetail (RFC 9457) con `detail`; los 400 añaden `fieldErrors`.
  * Pendiente: recuperación de contraseña (RF-03) aún no existe en el backend.
  */
 
 /**
- * URL base del backend. Llega por variable de entorno Vite; nunca se hardcodea.
+ * URL base del backend. Llega por variable de entorno Vite; nunca se hardcodea: si falta, la
+ * aplicación falla al cargar con un mensaje claro en vez de apuntar en silencio a un host supuesto.
  * Todo lo que Vite inyecta en el bundle es PÚBLICO: aquí no van secretos.
  */
-export const API_BASE_URL: string = (
-  import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
-).replace(/\/+$/, '');
+function resolveApiBaseUrl(): string {
+  const url: string | undefined = import.meta.env.VITE_API_URL?.trim();
+  if (!url) {
+    throw new Error('Falta VITE_API_URL: copia citas-web/.env.example a citas-web/.env.');
+  }
+  return url.replace(/\/+$/, '');
+}
+
+export const API_BASE_URL: string = resolveApiBaseUrl();
 
 /** Rutas REST. Ver advertencia de reconciliación al inicio del archivo. */
 export const API_ROUTES = {
@@ -103,7 +110,8 @@ export interface UserResponse {
   documentType: DocumentTypeCode;
   documentNumber: string;
   email: string;
-  phone: string;
+  /** La columna admite NULL y el backend omite los nulos al serializar. */
+  phone?: string;
   roles: Role[];
 }
 
