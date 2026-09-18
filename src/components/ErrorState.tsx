@@ -3,7 +3,7 @@ import type { ApiError } from '../api/ApiError';
 
 export interface ErrorStateProps {
   error: ApiError | null;
-  title?: string;
+  title?: string | undefined;
   /** Mensaje si no hay `ApiError` que mostrar. */
   fallbackMessage?: string;
   onRetry?: (() => void) | undefined;

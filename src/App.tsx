@@ -8,6 +8,9 @@ import { ToastProvider } from './components/ToastProvider';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { InAppNotFoundPage, NotFoundPage } from './pages/NotFoundPage';
+import { AppointmentDetailPage } from './pages/patient/AppointmentDetailPage';
+import { BookingPage } from './pages/patient/booking/BookingPage';
+import { MyAppointmentsPage } from './pages/patient/MyAppointmentsPage';
 import { PatientHomePage } from './pages/patient/PatientHomePage';
 import { ProfessionalHomePage } from './pages/professional/ProfessionalHomePage';
 import { RecuperarPasswordPage } from './pages/RecuperarPasswordPage';
@@ -52,6 +55,9 @@ export function App() {
                 }
               >
                 <Route index element={<PatientHomePage />} />
+                <Route path="agendar" element={<BookingPage />} />
+                <Route path="citas" element={<MyAppointmentsPage />} />
+                <Route path="citas/:id" element={<AppointmentDetailPage />} />
                 <Route path="*" element={<InAppNotFoundPage />} />
               </Route>
 

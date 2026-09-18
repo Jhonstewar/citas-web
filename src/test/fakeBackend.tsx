@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { expect, vi } from 'vitest';
 import { App } from '../App';
 import type { AuthTokensResponse, Role } from '../api/contracts';
 
@@ -128,6 +128,11 @@ export async function renderLoggedIn(fullName: string, path?: string) {
   fireEvent.change(screen.getByLabelText(/Contraseña/), { target: { value: 'Clave-Secreta#2026' } });
   fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
   await screen.findByText(fullName);
+  // Espera a que "/" termine de redirigir al inicio del rol; si no, esa redirección podría
+  // llegar después de `goTo` y pisar la ruta pedida.
+  await waitFor(() => {
+    expect(['/', '/login']).not.toContain(window.location.pathname);
+  });
   if (path !== undefined) goTo(path);
   return view;
 }
