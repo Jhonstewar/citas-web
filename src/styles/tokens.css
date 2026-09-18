@@ -1,47 +1,79 @@
 /**
- * Tokens del sistema visual "utilidad clínica serena".
+ * Tokens del sistema visual "claridad clínica cálida" (evolución de "utilidad clínica serena").
  *
- * Esta es la misma especificación que se describe en
- * `docs/diseno/PROMPTS_STITCH.md` (sección SISTEMA VISUAL). Si el diseño
- * aprobado en Stitch cambia un valor, se cambia AQUÍ y se propaga solo.
+ * S3: alineado con el Prompt 0 de `../prompts/diseno/PROMPT_STITCH_S3.md` para que la
+ * reconciliación con Stitch sea directa. Primario #0B5C8C, acento aqua #14B8A6 con moderación,
+ * estados siempre con icono + texto y modo oscuro por `prefers-color-scheme`.
+ * Si el diseño aprobado cambia un valor, se cambia AQUÍ y se propaga solo.
  */
 :root {
+  color-scheme: light;
+
   /* Color: roles semánticos, no una paleta suelta */
-  --color-bg: #f2f5f8;
+  --color-bg: #f4f7fa;
   --color-surface: #ffffff;
-  --color-surface-muted: #eaeff4;
-  --color-text: #16232e;
-  --color-text-secondary: #55677a;
-  --color-border: #d2dbe3;
-  --color-border-strong: #b4c1cd;
+  --color-surface-muted: #eef3f7;
+  --color-surface-raised: #ffffff;
+  --color-text: #14212b;
+  --color-text-secondary: #5b6b7b;
+  --color-border: #dce4eb;
+  --color-border-strong: #b7c4d0;
 
   --color-primary: #0b5c8c;
   --color-primary-hover: #094a71;
   --color-primary-active: #073a58;
-  --color-primary-soft: #e4eff7;
+  --color-primary-soft: #e3eff7;
   --color-on-primary: #ffffff;
 
-  --color-success: #1c7a4d;
-  --color-success-soft: #e6f3ec;
-  --color-danger: #b3261e;
-  --color-danger-soft: #fdecea;
+  /* Acento aqua: progreso, selección y realces. Nunca como color de texto sobre blanco. */
+  --color-accent: #14b8a6;
+  --color-accent-strong: #0f766e;
+  --color-accent-soft: #ddf6f2;
+  --color-on-accent: #ffffff;
+
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-danger: #b91c1c;
+  --color-danger-hover: #991b1b;
+  --color-danger-soft: #fee2e2;
+  --color-on-danger: #ffffff;
+  --color-on-success: #ffffff;
+  --color-warning: #b45309;
+  --color-warning-soft: #fef3c7;
   --color-info: #0b5c8c;
-  --color-info-soft: #e4eff7;
+  --color-info-soft: #e3eff7;
 
   --color-focus: #1d7fc0;
   --color-disabled-bg: #edf1f5;
-  --color-disabled-text: #8a99a8;
+  --color-disabled-text: #7d8c9b;
+  --color-scrim: rgba(12, 22, 32, 0.48);
 
-  /* Tipografía: pila del sistema, legible en pantallas de consultorio */
+  /* Estados de cita: texto oscuro sobre fondo claro, contraste AA (≥ 4.5:1) */
+  --status-requested-fg: #92400e;
+  --status-requested-bg: #fef3c7;
+  --status-approved-fg: #15803d;
+  --status-approved-bg: #dcfce7;
+  --status-rejected-fg: #b91c1c;
+  --status-rejected-bg: #fee2e2;
+  --status-cancelled-fg: #475569;
+  --status-cancelled-bg: #f1f5f9;
+  --status-completed-fg: #1d4ed8;
+  --status-completed-bg: #dbeafe;
+  --status-noshow-fg: #374151;
+  --status-noshow-bg: #e5e7eb;
+
+  /* Tipografía: se usan si están instaladas; si no, la pila del sistema (sin CDN) */
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
 
   --text-xs: 0.75rem;   /* 12px — pies de ayuda */
   --text-sm: 0.875rem;  /* 14px — etiquetas, errores */
   --text-base: 1rem;    /* 16px — cuerpo y campos */
-  --text-lg: 1.25rem;   /* 20px — subtítulos */
-  --text-xl: 1.5rem;    /* 24px — título de pantalla */
-  --text-2xl: 2rem;     /* 32px — título de marca */
+  --text-md: 1.125rem;  /* 18px — títulos de tarjeta */
+  --text-lg: 1.375rem;  /* 22px — subtítulos */
+  --text-xl: 1.75rem;   /* 28px — título de pantalla */
+  --text-2xl: 2.25rem;  /* 36px — cifras destacadas */
 
   --leading-tight: 1.25;
   --leading-normal: 1.55;
@@ -49,6 +81,7 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+  --weight-bold: 700;
 
   /* Espaciado: escala de 4px */
   --space-1: 0.25rem;
@@ -58,20 +91,90 @@
   --space-5: 1.5rem;
   --space-6: 2rem;
   --space-7: 3rem;
+  --space-8: 4rem;
 
   /* Superficies */
-  --radius-control: 8px;
+  --radius-control: 10px;
   --radius-card: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
   --border-width: 1px;
-  --shadow-card: 0 1px 2px rgba(22, 35, 46, 0.06), 0 8px 24px rgba(22, 35, 46, 0.07);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.06), 0 20px 48px rgba(16, 24, 40, 0.14);
 
   /* Movimiento: solo para confirmar estado, nunca decorativo */
   --motion-fast: 120ms;
-  --motion-base: 160ms;
+  --motion-base: 180ms;
   --easing: cubic-bezier(0.2, 0, 0.2, 1);
 
   /* Medidas */
   --control-height: 44px;
+  --control-height-sm: 36px;
   --card-narrow: 26rem;
   --card-wide: 44rem;
+  --sidebar-width: 15rem;
+  --content-max: 75rem;
+  --topbar-height: 4rem;
+}
+
+/* Modo oscuro: mismos roles, valores recalculados para contraste AA sobre fondo oscuro. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-bg: #0e1620;
+    --color-surface: #16212c;
+    --color-surface-muted: #1c2935;
+    --color-surface-raised: #1b2733;
+    --color-text: #e6edf3;
+    --color-text-secondary: #a3b3c2;
+    --color-border: #2a3a49;
+    --color-border-strong: #3d5163;
+
+    --color-primary: #5fb0e3;
+    --color-primary-hover: #7dc0ea;
+    --color-primary-active: #9ccff0;
+    --color-primary-soft: #14344a;
+    --color-on-primary: #06243a;
+
+    --color-accent: #2dd4bf;
+    --color-accent-strong: #5eead4;
+    --color-accent-soft: #0f3b37;
+    --color-on-accent: #042f2e;
+
+    --color-success: #4ade80;
+    --color-success-soft: #0f3320;
+    --color-danger: #f87171;
+    --color-danger-hover: #fca5a5;
+    --color-danger-soft: #3b1618;
+    --color-on-danger: #2a0a0a;
+    --color-on-success: #052e16;
+    --color-warning: #fbbf24;
+    --color-warning-soft: #3a2a0a;
+    --color-info: #5fb0e3;
+    --color-info-soft: #14344a;
+
+    --color-focus: #7cc4f0;
+    --color-disabled-bg: #1f2b36;
+    --color-disabled-text: #75879a;
+    --color-scrim: rgba(0, 0, 0, 0.6);
+
+    --status-requested-fg: #fcd34d;
+    --status-requested-bg: #3a2a0a;
+    --status-approved-fg: #86efac;
+    --status-approved-bg: #0f3320;
+    --status-rejected-fg: #fca5a5;
+    --status-rejected-bg: #3b1618;
+    --status-cancelled-fg: #cbd5e1;
+    --status-cancelled-bg: #243140;
+    --status-completed-fg: #93c5fd;
+    --status-completed-bg: #172b4d;
+    --status-noshow-fg: #d1d5db;
+    --status-noshow-bg: #2b333d;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 20px 48px rgba(0, 0, 0, 0.5);
+  }
 }

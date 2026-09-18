@@ -32,38 +32,73 @@ la plantilla versionada.
 
 ```
 src/
-  api/          Cliente HTTP y contrato REST
-    contracts.ts  ← rutas y tipos REST, único lugar donde viven
-    httpClient.ts   fetch + Bearer + clasificación de errores por código de estado
-    authApi.ts      operaciones de RF-01, RF-02 y RF-03
-    userApi.ts      usuario autenticado (GET /api/me)
-    ApiError.ts     error con la causa ya clasificada
-  auth/         Sesión y guarda de rutas
-    sessionManager.ts  tokens en memoria, renovación única en vuelo y carreras con el logout
-    SessionProvider.tsx  conecta la sesión con React y con el cliente HTTP
-  components/   Campo, selector, botón de envío, aviso y marco de autenticación
-  pages/        Pantallas
-  validation/   Validación de cliente de los formularios
-  styles/       tokens.css (sistema visual) y global.css
-docs/diseno/    Material del flujo Stitch → Google AI Studio
+  api/              Cliente HTTP y contrato REST
+    contracts.ts      ← rutas y tipos REST (identidad + S3), único lugar donde viven
+    httpClient.ts       fetch + Bearer + renovación ante 401 + clasificación por estado HTTP
+    ApiError.ts         error clasificado; expone `code` y `field` del ProblemDetail
+    authApi.ts          RF-01, RF-02 y RF-03
+    userApi.ts          usuario autenticado (GET /api/me)
+    catalogApi.ts       catálogos fijos: sedes, especialidades activas, tipos y estados de cita
+    patientApi.ts       disponibilidad, reserva y mis citas (USER)
+    professionalApi.ts  perfil propio y bloques de agenda (PROFESSIONAL)
+    adminApi.ts         especialidades, profesionales, bandeja y resumen (ADMIN)
+  app/              Marco autenticado: AppShell (barra lateral + cabecera) y menú por rol
+  auth/             Sesión y guardas de ruta
+    sessionManager.ts     tokens en memoria, renovación única en vuelo y carreras con el logout
+    SessionProvider.tsx   conecta la sesión con React y con el cliente HTTP
+    CurrentUserProvider   usuario y roles desde GET /api/me
+    RequireAuth, RequireRole  sin sesión → /login; ruta de otro rol → "Sin permiso"
+    roles.ts              inicio y etiqueta de cada rol
+  components/       Card, PageHeader, DataTable, StatusBadge/Badge, Modal, ConfirmDialog,
+                    EmptyState, ErrorState, Skeleton, Toast, DateStrip, ChoiceControls
+                    (Checkbox, ChoiceCards, SegmentedControl, TextAreaField), AppointmentCard
+                    y los campos y avisos de S2
+  lib/              fechas (zona America/Bogota), etiquetas de estado y hook useResource
+  pages/            auth (S2), patient/, professional/ y admin/
+  test/             backend simulado para las pruebas de pantallas (fetch con guion)
+  validation/       validación de cliente de los formularios (ayuda, no autoridad)
+  styles/           tokens.css (sistema visual y modo oscuro), global.css y app.css
+docs/diseno/        Material del flujo Stitch → Google AI Studio
 ```
 
 ## Rutas
 
-| Ruta | Pantalla | PRD |
-| --- | --- | --- |
-| `/login` | Inicio de sesión | RF-02 |
-| `/registro` | Registro de usuario | RF-01 |
-| `/recuperar-password` | Solicitud de recuperación | RF-03 |
-| `/` | Placeholder protegido que muestra los datos de `GET /api/me`; sin sesión redirige a `/login` | §6 |
+| Ruta | Pantalla | Rol | HU |
+| --- | --- | --- | --- |
+| `/login` | Inicio de sesión | público | HU-002 |
+| `/registro` | Registro de usuario | público | HU-001 |
+| `/recuperar-password` | Solicitud de recuperación | público | RF-03 |
+| `/` | Redirige al inicio del rol de la sesión | autenticado | HU-005 |
+| `/paciente` | Inicio: saludo, próximas citas y datos de la cuenta | USER | RF-13 |
+| `/paciente/agendar` | Asistente de reserva en 4 pasos | USER | HU-022..024 |
+| `/paciente/citas` | Mis citas con filtros de estado y fecha | USER | HU-025 |
+| `/paciente/citas/:id` | Detalle con motivo de rechazo e historial | USER | HU-025, HU-030 |
+| `/profesional` | Inicio: sedes, especialidades y resumen de la semana | PROFESSIONAL | HU-019 |
+| `/profesional/agenda` | Agenda semanal; crear, editar y eliminar bloques | PROFESSIONAL | HU-017..019 |
+| `/admin` | Panel con indicadores y accesos directos | ADMIN | HU-029 |
+| `/admin/solicitudes` | Bandeja: aprobar y rechazar con motivo | ADMIN | HU-029, HU-030 |
+| `/admin/profesionales` | Listado con búsqueda y filtro activo/inactivo | ADMIN | HU-013, HU-016 |
+| `/admin/profesionales/nuevo` | Alta de profesional por secciones | ADMIN | HU-013..015 |
+| `/admin/profesionales/:id` | Datos, especialidades, sedes y estado | ADMIN | HU-013..016 |
+| `/admin/especialidades` | Especialidades con duración 30/60 min | ADMIN | HU-011 |
+
+Una ruta de otro rol muestra **Sin permiso** sin cerrar la sesión; un 403 de la API muestra
+**Permiso insuficiente** y mantiene la sesión; un 401 no recuperable vuelve al login
+(HU-005 CA-08 y CA-09). Es navegación: la autorización la decide siempre el backend.
 
 ## Contrato REST
 
-`src/api/contracts.ts` es el **único** archivo con rutas y tipos de la API, conciliado
-con `citas-api` para identidad y sesión. El contrato documentado vive en la wiki del
-backend: `citas-api/docs/wiki/llm-wiki/wiki/contrato-rest-identidad.md`. La
-recuperación de contraseña (RF-03) aún no existe en el backend. Ningún componente
-construye URLs.
+`src/api/contracts.ts` es el **único** archivo con rutas y tipos de la API. Fuentes en la wiki
+del backend: `contrato-rest-identidad.md` (vigente) y `contrato-rest-citas.md` (S3,
+provisional hasta verificarlo contra el backend). La UI decide por `status` y por la extensión
+`code` del ProblemDetail, y muestra `detail` al usuario. Ningún componente construye URLs: los
+filtros pasan por `withQuery`. La recuperación de contraseña (RF-03) aún no existe en el backend.
+
+## Pruebas
+
+Vitest + Testing Library sobre jsdom, con `fetch` simulado (`src/test/fakeBackend.tsx`): cada
+prueba de pantalla inicia sesión por el formulario real y responde con un guion por ruta. No hay
+pruebas contra el backend real.
 
 ## Diseño
 
