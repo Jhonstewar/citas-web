@@ -4,9 +4,10 @@ Generado en S2 (paso 2) con `../prompts/agents/PROMPT_AGENT_CITAS_WEB.md`, a par
 código real del repositorio. La gobernanza global está en `../AGENTS.md`; este archivo la
 concreta para el frontend y **no** la contradice.
 
-> **Pendiente:** el diseño de Stitch → Google AI Studio (S2 paso 4) aún no se ha importado.
-> Cuando se importe, este archivo se **revisa** con el mismo prompt: si AI Studio exporta otro
-> stack o estructura, gana lo importado y aprobado, no lo que dice aquí.
+> **Pendiente:** el diseño de Stitch → Google AI Studio aún no se ha importado. En S3 las
+> pantallas se construyeron con un diseño propio alineado con el Prompt 0 de
+> `../prompts/diseno/PROMPT_STITCH_S3.md` (tokens en `src/styles/tokens.css`). Cuando se
+> importe el diseño aprobado, este archivo se **revisa**: gana lo importado y aprobado.
 
 ## 1. Stack detectado (no cambiar por preferencia)
 
@@ -17,6 +18,8 @@ concreta para el frontend y **no** la contradice.
 | Router | `react-router` 8 |
 | Pruebas | Vitest 5 + Testing Library + jsdom |
 | Lint | oxlint (`.oxlintrc.json`) |
+| Iconos | `lucide-react` (única dependencia de UI añadida en S3) |
+| Estilos | CSS propio con tokens; sin frameworks CSS |
 | Runtime | Node 24 LTS |
 
 No hay Angular en este repo (el `.gitignore` conserva `.angular/` solo por herencia).
@@ -26,16 +29,21 @@ No hay Angular en este repo (el `.gitignore` conserva `.angular/` solo por heren
 ```
 src/
 ├── api/          Único punto de contacto con citas-api
-│   ├── contracts.ts   rutas y tipos REST — el ÚNICO lugar donde viven
-│   ├── httpClient.ts  fetch + Bearer + clasificación de errores por estado HTTP
-│   ├── authApi.ts / userApi.ts
-│   └── ApiError.ts
+│   ├── contracts.ts   rutas y tipos REST (identidad + S3) — el ÚNICO lugar donde viven
+│   ├── httpClient.ts  fetch + Bearer + renovación ante 401 + clasificación por estado HTTP
+│   ├── ApiError.ts    kind, status, fieldErrors y extensiones `code`/`field` del ProblemDetail
+│   └── authApi / userApi / catalogApi / patientApi / professionalApi / adminApi
+├── app/          AppShell (barra lateral + cabecera) y navegación por rol
 ├── auth/         Sesión: sessionManager (tokens en memoria, una sola renovación en vuelo,
-│                 épocas contra carreras con el logout), SessionProvider, RequireAuth
-├── components/   Campos, selector, botón de envío, avisos, AuthLayout
-├── pages/        Login, Registro, RecuperarPassword, DashboardPlaceholder, NotFound
+│                 épocas contra carreras con el logout), SessionProvider, RequireAuth,
+│                 CurrentUserProvider (GET /api/me), RequireRole y roles.ts
+├── components/   Sistema de componentes (Card, Modal, ConfirmDialog, DataTable, StatusBadge,
+│                 EmptyState, ErrorState, Skeleton, Toast, DateStrip, ChoiceControls…) y los de S2
+├── lib/          dates.ts (zona America/Bogota), status.ts, useResource.ts
+├── pages/        auth (S2), ForbiddenPage, NotFound, patient/, professional/, admin/
+├── test/         fakeBackend.tsx: fetch simulado con guion para las pruebas de pantallas
 ├── validation/   Validación de cliente de formularios (ayuda al usuario, no autoridad)
-└── styles/       tokens.css (sistema visual) y global.css
+└── styles/       tokens.css (sistema visual, modo oscuro), global.css y app.css
 docs/diseno/      PANTALLAS_OBLIGATORIAS, PROMPTS_STITCH, HANDOFF_AI_STUDIO
 ```
 
@@ -55,6 +63,15 @@ docs/diseno/      PANTALLAS_OBLIGATORIAS, PROMPTS_STITCH, HANDOFF_AI_STUDIO
   componentes, tokens y estilos que ya son correctos; no se rediseñan pantallas aprobadas.
 - Cada pantalla contempla sus estados: `loading`, `empty`, `error`, `success` y `disabled`, con
   mensajes en español y accesibles (labels, foco, `aria-*`).
+- Rutas por rol: `/paciente` (USER), `/profesional` (PROFESSIONAL), `/admin` (ADMIN). Una ruta
+  de otro rol muestra "Sin permiso" sin cerrar sesión; un 403 de la API muestra "Permiso
+  insuficiente" (`ErrorState`); solo el 401 no recuperable devuelve al login.
+- Los errores se deciden por `status` y `code` (`ERROR_CODES` en `contracts.ts`) y se muestra
+  `detail`; nunca se parsea el texto del servidor.
+- Los estados de cita se muestran con color + icono + texto (`StatusBadge`), nunca solo color.
+- Pruebas de pantalla: `src/test/fakeBackend.tsx` (login por el formulario real y `fetch` con
+  guion por ruta). Si una prueba depende de "hoy", fija la fecha con
+  `vi.useFakeTimers({ toFake: ['Date'] })`.
 
 ## 4. Comandos
 

@@ -6,6 +6,11 @@ import { RequireRole, RoleHomeRedirect } from './auth/RequireRole';
 import { SessionProvider } from './auth/SessionProvider';
 import { ToastProvider } from './components/ToastProvider';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { InboxPage } from './pages/admin/InboxPage';
+import { ProfessionalCreatePage } from './pages/admin/ProfessionalCreatePage';
+import { ProfessionalEditPage } from './pages/admin/ProfessionalEditPage';
+import { ProfessionalsPage } from './pages/admin/ProfessionalsPage';
+import { SpecialtiesPage } from './pages/admin/SpecialtiesPage';
 import { LoginPage } from './pages/LoginPage';
 import { InAppNotFoundPage, NotFoundPage } from './pages/NotFoundPage';
 import { AppointmentDetailPage } from './pages/patient/AppointmentDetailPage';
@@ -84,6 +89,11 @@ export function App() {
                 }
               >
                 <Route index element={<AdminDashboardPage />} />
+                <Route path="solicitudes" element={<InboxPage />} />
+                <Route path="profesionales" element={<ProfessionalsPage />} />
+                <Route path="profesionales/nuevo" element={<ProfessionalCreatePage />} />
+                <Route path="profesionales/:id" element={<ProfessionalEditPage />} />
+                <Route path="especialidades" element={<SpecialtiesPage />} />
                 <Route path="*" element={<InAppNotFoundPage />} />
               </Route>
             </Route>

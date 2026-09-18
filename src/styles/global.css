@@ -290,7 +290,7 @@ ol {
 
 .button--danger {
   background: var(--color-danger);
-  color: #ffffff;
+  color: var(--color-on-danger);
 }
 
 .button--danger:hover:not(:disabled) {
@@ -309,7 +309,7 @@ ol {
 
 .button--success {
   background: var(--color-success);
-  color: #ffffff;
+  color: var(--color-on-success);
 }
 
 .button--success:hover:not(:disabled) {
