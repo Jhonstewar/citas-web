@@ -12,6 +12,7 @@ import { AppointmentDetailPage } from './pages/patient/AppointmentDetailPage';
 import { BookingPage } from './pages/patient/booking/BookingPage';
 import { MyAppointmentsPage } from './pages/patient/MyAppointmentsPage';
 import { PatientHomePage } from './pages/patient/PatientHomePage';
+import { AgendaPage } from './pages/professional/AgendaPage';
 import { ProfessionalHomePage } from './pages/professional/ProfessionalHomePage';
 import { RecuperarPasswordPage } from './pages/RecuperarPasswordPage';
 import { RegistroPage } from './pages/RegistroPage';
@@ -70,6 +71,7 @@ export function App() {
                 }
               >
                 <Route index element={<ProfessionalHomePage />} />
+                <Route path="agenda" element={<AgendaPage />} />
                 <Route path="*" element={<InAppNotFoundPage />} />
               </Route>
 
