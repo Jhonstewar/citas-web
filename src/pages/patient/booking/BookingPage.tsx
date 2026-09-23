@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarCheck,
   CalendarDays,
+  Check,
   Clock,
   HeartPulse,
   Hourglass,
@@ -246,7 +247,8 @@ export function BookingPage() {
                 {...(state === 'current' ? { 'aria-current': 'step' as const } : {})}
               >
                 <span className="stepper__num" aria-hidden="true">
-                  {number}
+                  {/* El paso hecho se marca con un visto; el número ya no aporta nada. */}
+                  {state === 'done' ? <Check size={16} /> : number}
                 </span>
                 <span className="stepper__label">{label}</span>
                 <span className="visually-hidden">

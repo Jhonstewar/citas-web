@@ -1,0 +1,17 @@
+/**
+ * Tipografía del sistema visual, autoalojada vía `@fontsource` (npm).
+ *
+ * `DESIGN.md` del diseño aprobado en Stitch ("Calm Clinical Clarity") pide Plus Jakarta Sans
+ * para titulares e Inter para cuerpo y datos. Se sirve desde el propio bundle y no desde un CDN:
+ * la app tiene que funcionar en un laboratorio sin salida a internet.
+ *
+ * Pesos y subconjuntos mínimos: Inter viaja como variable con `unicode-range` por subconjunto
+ * (el navegador solo descarga el que necesita) y de Jakarta solo se piden 600 y 700 en latín.
+ */
+
+/* Cuerpo, formularios y tablas: Inter variable (100–900 en un solo archivo). */
+@import '@fontsource-variable/inter/wght.css';
+
+/* Titulares: Plus Jakarta Sans en semibold y bold. */
+@import '@fontsource/plus-jakarta-sans/latin-600.css';
+@import '@fontsource/plus-jakarta-sans/latin-700.css';

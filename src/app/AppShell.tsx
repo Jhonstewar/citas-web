@@ -1,10 +1,11 @@
-import { HeartPulse, LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, ShieldCheck, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
-import type { Role } from '../api/contracts';
+import { DOCUMENT_TYPES, type Role } from '../api/contracts';
 import { useCurrentUser } from '../auth/CurrentUserContext';
 import { ROLE_LABEL } from '../auth/roles';
 import { useSession } from '../auth/useSession';
+import { BrandMark } from '../components/BrandLogo';
 import { NAVIGATION } from './navigation';
 
 const ROLE_ORDER: readonly Role[] = ['ADMIN', 'PROFESSIONAL', 'USER'];
@@ -23,7 +24,7 @@ function initials(name: string): string {
  * desplegable), cabecera con el usuario y "Cerrar sesión", y el contenido de la ruta.
  */
 export function AppShell() {
-  const { fullName, roles, primaryRole } = useCurrentUser();
+  const { user, fullName, roles, primaryRole } = useCurrentUser();
   const { signOut } = useSession();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,6 +46,7 @@ export function AppShell() {
 
   const visibleRoles = ROLE_ORDER.filter((role) => roles.includes(role));
   const showGroups = visibleRoles.length > 1;
+  const documentType = DOCUMENT_TYPES.find((type) => type.code === user.documentType);
 
   return (
     <div className={menuOpen ? 'app app--menu-open' : 'app'}>
@@ -55,11 +57,11 @@ export function AppShell() {
       <aside className="sidebar" id={navId} aria-label="Navegación principal">
         <div className="sidebar__brand">
           <span className="sidebar__logo" aria-hidden="true">
-            <HeartPulse size={20} />
+            <BrandMark size={22} />
           </span>
           <span>
             FCV Citas
-            <span className="sidebar__brand-sub">{ROLE_LABEL[primaryRole]}</span>
+            <span className="sidebar__brand-sub">HIC · ICV</span>
           </span>
           <button
             type="button"
@@ -70,10 +72,27 @@ export function AppShell() {
             <X size={20} aria-hidden="true" />
           </button>
         </div>
+
+        {/*
+         * Tarjeta de identidad: con qué rol y con qué documento estás viendo la aplicación.
+         * El nombre no se repite aquí — vive en la cabecera, junto a "Cerrar sesión".
+         */}
+        <div className="sidebar__account">
+          <p className="sidebar__account-role">
+            <ShieldCheck size={14} aria-hidden="true" />
+            {ROLE_LABEL[primaryRole]}
+          </p>
+          <p className="sidebar__account-doc">
+            {documentType?.code ?? user.documentType} {user.documentNumber}
+          </p>
+        </div>
+
         <nav className="sidebar__nav">
           {visibleRoles.map((role) => (
             <div key={role} className="sidebar__group">
-              {showGroups ? <p className="sidebar__group-title">{ROLE_LABEL[role]}</p> : null}
+              <p className="sidebar__group-title">
+                {showGroups ? ROLE_LABEL[role] : 'Menú principal'}
+              </p>
               <ul className="sidebar__list">
                 {NAVIGATION[role].map((item) => {
                   const Icon = item.icon;
@@ -121,7 +140,7 @@ export function AppShell() {
             <Menu size={22} aria-hidden="true" />
           </button>
           <p className="topbar__brand">
-            <HeartPulse size={18} aria-hidden="true" /> FCV Citas
+            <BrandMark size={20} /> FCV Citas
           </p>
           <div className="topbar__user">
             <span className="avatar" aria-hidden="true">

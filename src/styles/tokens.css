@@ -1,9 +1,10 @@
 /**
- * Tokens del sistema visual "claridad clínica cálida" (evolución de "utilidad clínica serena").
+ * Tokens del sistema visual "Calm Clinical Clarity".
  *
- * S3: alineado con el Prompt 0 de `../prompts/diseno/PROMPT_STITCH_S3.md` para que la
- * reconciliación con Stitch sea directa. Primario #0B5C8C, acento aqua #14B8A6 con moderación,
- * estados siempre con icono + texto y modo oscuro por `prefers-color-scheme`.
+ * Fuente de verdad: el `DESIGN.md` del diseño aprobado en Stitch, archivado en
+ * `../../docs/diseno/stitch/`. Primario #0B5C8C, acento aqua #14B8A6 con moderación,
+ * estados siempre con icono + texto + borde, tres niveles de elevación y modo oscuro
+ * por `prefers-color-scheme`.
  * Si el diseño aprobado cambia un valor, se cambia AQUÍ y se propaga solo.
  */
 :root {
@@ -21,9 +22,14 @@
 
   --color-primary: #0b5c8c;
   --color-primary-hover: #094a71;
-  --color-primary-active: #073a58;
+  --color-primary-active: #06334f;
   --color-primary-soft: #e3eff7;
   --color-on-primary: #ffffff;
+
+  /* Panel de marca: degradado azul → azul profundo con un halo aqua. Solo en marca y hero. */
+  --gradient-brand: linear-gradient(155deg, #0b5c8c 0%, #094a71 45%, #06334f 100%);
+  --gradient-brand-glow: radial-gradient(60% 45% at 78% 12%, rgba(20, 184, 166, 0.28), transparent 70%);
+  --gradient-hero: linear-gradient(120deg, #e9f2f9 0%, #f4f9fb 55%, #e4f5f2 100%);
 
   /* Acento aqua: progreso, selección y realces. Nunca como color de texto sobre blanco. */
   --color-accent: #14b8a6;
@@ -48,23 +54,31 @@
   --color-disabled-text: #7d8c9b;
   --color-scrim: rgba(12, 22, 32, 0.48);
 
-  /* Estados de cita: texto oscuro sobre fondo claro, contraste AA (≥ 4.5:1) */
+  /* Estados de cita: texto oscuro sobre fondo claro, contraste AA (≥ 4.5:1), con borde propio */
   --status-requested-fg: #92400e;
   --status-requested-bg: #fef3c7;
+  --status-requested-border: #fde68a;
   --status-approved-fg: #15803d;
   --status-approved-bg: #dcfce7;
+  --status-approved-border: #bbf7d0;
   --status-rejected-fg: #b91c1c;
   --status-rejected-bg: #fee2e2;
+  --status-rejected-border: #fecaca;
   --status-cancelled-fg: #475569;
   --status-cancelled-bg: #f1f5f9;
+  --status-cancelled-border: #e2e8f0;
   --status-completed-fg: #1d4ed8;
   --status-completed-bg: #dbeafe;
+  --status-completed-border: #bfdbfe;
   --status-noshow-fg: #374151;
   --status-noshow-bg: #e5e7eb;
+  --status-noshow-border: #d1d5db;
 
-  /* Tipografía: se usan si están instaladas; si no, la pila del sistema (sin CDN) */
-  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  --font-display: 'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Tipografía: autoalojada en `fonts.css`; la pila del sistema queda como respaldo */
+  --font-sans: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter Variable', 'Inter', 'Segoe UI', system-ui,
+    -apple-system, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
 
   --text-xs: 0.75rem;   /* 12px — pies de ayuda */
@@ -99,9 +113,21 @@
   --radius-lg: 16px;
   --radius-pill: 999px;
   --border-width: 1px;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
-  --shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.06), 0 20px 48px rgba(16, 24, 40, 0.14);
+
+  /*
+   * Tres niveles de elevación, como en `DESIGN.md`: la separación la hace el borde de 1 px y
+   * la sombra solo insinúa profundidad. Sin blur ni sombras pesadas.
+   *   sm   → tier 1: tarjeta en reposo, campos, contenedor de tabla
+   *   card → tier 2: tarjeta interactiva en hover, desplegables, selectores de fecha
+   *   lg   → tier 3: modales, paneles laterales, avisos flotantes
+   */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-card: 0 4px 12px rgba(16, 24, 40, 0.07), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.1), 0 2px 6px rgba(16, 24, 40, 0.04);
+
+  /* Anillos de foco de los campos: color del rol + 3 px translúcidos */
+  --ring-primary: 0 0 0 3px rgba(11, 92, 140, 0.15);
+  --ring-danger: 0 0 0 3px rgba(185, 28, 28, 0.15);
 
   /* Movimiento: solo para confirmar estado, nunca decorativo */
   --motion-fast: 120ms;
@@ -162,19 +188,32 @@
 
     --status-requested-fg: #fcd34d;
     --status-requested-bg: #3a2a0a;
+    --status-requested-border: #6b4c10;
     --status-approved-fg: #86efac;
     --status-approved-bg: #0f3320;
+    --status-approved-border: #1c5c39;
     --status-rejected-fg: #fca5a5;
     --status-rejected-bg: #3b1618;
+    --status-rejected-border: #6d2a2a;
     --status-cancelled-fg: #cbd5e1;
     --status-cancelled-bg: #243140;
+    --status-cancelled-border: #3b4b5e;
     --status-completed-fg: #93c5fd;
     --status-completed-bg: #172b4d;
+    --status-completed-border: #2a4878;
     --status-noshow-fg: #d1d5db;
     --status-noshow-bg: #2b333d;
+    --status-noshow-border: #454f5b;
+
+    /* El panel de marca conserva el azul institucional: es identidad, no superficie. */
+    --gradient-brand: linear-gradient(155deg, #0a4e77 0%, #073d5e 45%, #05293f 100%);
+    --gradient-hero: linear-gradient(120deg, #17293a 0%, #16212c 55%, #14302d 100%);
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 20px 48px rgba(0, 0, 0, 0.5);
+    --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+
+    --ring-primary: 0 0 0 3px rgba(95, 176, 227, 0.25);
+    --ring-danger: 0 0 0 3px rgba(248, 113, 113, 0.25);
   }
 }
