@@ -68,6 +68,12 @@ export const API_ROUTES = {
     documentTypes: '/api/catalogs/document-types',
     roles: '/api/catalogs/roles',
     regimes: '/api/catalogs/regimes',
+    /**
+     * RF-01 · Planes de afiliación activos. ÚNICO catálogo PÚBLICO: el registro no tiene sesión,
+     * así que esta lectura no lleva token ni participa del ciclo de renovación.
+     * El backend ya los devuelve filtrados a activos y ordenados: el cliente no filtra ni reordena.
+     */
+    insurancePlans: '/api/catalogs/insurance-plans',
   },
 
   /** Rutas del ADMIN (HU-011, HU-013..016, HU-029, HU-030). */
@@ -136,6 +142,12 @@ export interface RegisterRequest {
   email: string;
   phone: string;
   password: string;
+  /**
+   * RF-01 · Plan de afiliación, OPCIONAL. La clave se omite cuando el usuario no elige plan:
+   * no se envía `null` ni cadena vacía. Si el plan dejó de estar disponible, el backend responde
+   * 422 con `code = INSURANCE_PLAN_UNAVAILABLE`.
+   */
+  insurancePlanId?: number;
 }
 
 /** RF-02. */
@@ -233,6 +245,8 @@ export const ERROR_CODES = {
   professionalInactive: 'PROFESSIONAL_INACTIVE',
   wrongFlow: 'WRONG_FLOW',
   slotNotAvailable: 'SLOT_NOT_AVAILABLE',
+  /** RF-01 · El plan de afiliación elegido en el registro ya no está disponible (422). */
+  insurancePlanUnavailable: 'INSURANCE_PLAN_UNAVAILABLE',
 } as const;
 
 /** Longitud máxima del motivo de rechazo (HU-030). */
@@ -380,6 +394,22 @@ export interface AdminAppointment extends AppointmentDetail {
 export interface CatalogItem {
   code: string;
   name: string;
+}
+
+/** Referencia con identificador de los catálogos de afiliación (plan, EPS y régimen). */
+export interface InsuranceRef {
+  id: number;
+  code: string;
+  name: string;
+}
+
+/**
+ * RF-01 · Plan de afiliación con su EPS y su régimen. El backend entrega la lista ya filtrada a
+ * planes activos y en el orden definitivo: el cliente no filtra ni reordena.
+ */
+export interface InsurancePlan extends InsuranceRef {
+  eps: InsuranceRef;
+  regime: InsuranceRef;
 }
 
 export interface AppointmentTypeItem {

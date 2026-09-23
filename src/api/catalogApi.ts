@@ -4,6 +4,7 @@ import {
   type AppointmentStatusItem,
   type AppointmentTypeItem,
   type CatalogItem,
+  type InsurancePlan,
   type Site,
   type Specialty,
 } from './contracts';
@@ -38,4 +39,20 @@ export function getAppointmentStatuses(signal?: AbortSignal): Promise<Appointmen
 
 export function getDocumentTypes(signal?: AbortSignal): Promise<CatalogItem[]> {
   return get(API_ROUTES.catalogs.documentTypes, signal);
+}
+
+/**
+ * RF-01 · Planes de afiliación activos para el registro público.
+ *
+ * Es el ÚNICO catálogo que se pide SIN token: quien se registra todavía no tiene sesión. Por eso
+ * usa `authenticated: false`, igual que las rutas públicas de auth: así no adjunta un Bearer
+ * heredado de otra pestaña ni un 401 dispara el ciclo de renovación de sesión.
+ *
+ * La lista llega filtrada a planes activos y ordenada por el backend: no se filtra ni reordena.
+ */
+export function getInsurancePlans(signal?: AbortSignal): Promise<InsurancePlan[]> {
+  return request<InsurancePlan[]>(API_ROUTES.catalogs.insurancePlans, {
+    authenticated: false,
+    ...(signal === undefined ? {} : { signal }),
+  });
 }

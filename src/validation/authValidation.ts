@@ -18,7 +18,8 @@ export type RegisterField =
   | 'email'
   | 'phone'
   | 'password'
-  | 'passwordConfirm';
+  | 'passwordConfirm'
+  | 'insurancePlanId';
 
 export interface RegisterFormValues {
   firstNames: string;
@@ -29,6 +30,11 @@ export interface RegisterFormValues {
   phone: string;
   password: string;
   passwordConfirm: string;
+  /**
+   * RF-01 · Plan de afiliación. OPCIONAL: la cadena vacía significa "sin afiliación" y hace que
+   * la clave ni siquiera viaje en la petición. Como es opcional, no se valida en el cliente.
+   */
+  insurancePlanId: string;
 }
 
 export const EMPTY_REGISTER_FORM: RegisterFormValues = {
@@ -40,6 +46,7 @@ export const EMPTY_REGISTER_FORM: RegisterFormValues = {
   phone: '',
   password: '',
   passwordConfirm: '',
+  insurancePlanId: '',
 };
 
 /**

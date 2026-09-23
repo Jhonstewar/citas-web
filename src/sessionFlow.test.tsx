@@ -146,21 +146,28 @@ describe('registro en la aplicación (HU-001)', () => {
   });
 
   it('CA-01: envía los siete campos, sin la confirmación ni token, y lleva al login', async () => {
-    const calls = backend({ 'POST /api/auth/register': [json(201, USER)] });
+    const calls = backend({
+      // Catálogo público del plan de afiliación: la pantalla lo pide al montarse.
+      'GET /api/catalogs/insurance-plans': [json(200, [])],
+      'POST /api/auth/register': [json(201, USER)],
+    });
 
     render(<App />);
     registerThroughForm();
 
     expect(await screen.findByText(/Tu cuenta fue creada/)).not.toBeNull();
     expect(screen.getByRole('heading', { name: 'Inicia sesión' })).not.toBeNull();
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.authorization).toBeUndefined();
-    // `passwordConfirm` es solo validación de cliente: no viaja.
-    expect(calls[0]?.body).toEqual(REGISTRATION);
+    const registerCall = calls.find((call) => call.path === '/api/auth/register');
+    expect(calls).toHaveLength(2);
+    expect(registerCall?.authorization).toBeUndefined();
+    // `passwordConfirm` es solo validación de cliente: no viaja. El plan de afiliación tampoco,
+    // porque el usuario no eligió ninguno (es opcional).
+    expect(registerCall?.body).toEqual(REGISTRATION);
   });
 
   it('CA-02/CA-03: un 409 muestra el mensaje del servidor y deja reintentar', async () => {
     backend({
+      'GET /api/catalogs/insurance-plans': [json(200, [])],
       'POST /api/auth/register': [json(409, { title: 'Conflicto', detail: 'El email ya está registrado' })],
     });
 
@@ -174,6 +181,7 @@ describe('registro en la aplicación (HU-001)', () => {
   it('CA-04: los fieldErrors del 400 se muestran en su campo', async () => {
     const message = 'no debe superar 72 bytes en UTF-8 (la ñ y las vocales con tilde ocupan 2 bytes; los emojis, 4)';
     backend({
+      'GET /api/catalogs/insurance-plans': [json(200, [])],
       'POST /api/auth/register': [
         json(400, { title: 'Datos inválidos', detail: 'La petición contiene campos inválidos', fieldErrors: { password: message } }),
       ],
