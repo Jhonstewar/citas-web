@@ -16,9 +16,27 @@ pantallas que había, sin volver a Stitch por las que faltaban.
 | `stitch_fcv_citas_ui_design.zip` | Inicio paciente (`code.html` + `screen.png`), logo FCV Citas (`screen.png`), `DESIGN.md` |
 | `stitch_fcv_citas_ui_design_login.zip` | Iniciar sesión, Crear cuenta, Recuperar contraseña (paso 1), mismo `DESIGN.md` |
 
-`DESIGN.md` ("Calm Clinical Clarity") es idéntico en ambos zips y es **la fuente de verdad visual**:
-primario `#0B5C8C`, acento aqua `#14B8A6`, fondo `#F4F7FA`, Plus Jakarta Sans + Inter, radios
-10/12 px, controles de 44 px, tres niveles de elevación, pills de estado con icono y borde.
+`DESIGN.md` ("Calm Clinical Clarity") es idéntico en ambos zips y es **la fuente de verdad visual**.
+
+### Cuidado: `DESIGN.md` se contradice a sí mismo
+
+El archivo tiene **dos paletas distintas** y no dicen lo mismo:
+
+| | Primario | Acento | Fondo | Texto | Texto 2.º | Borde |
+|---|---|---|---|---|---|---|
+| Prosa (`## Colors`) | `#0B5C8C` | `#14B8A6` | `#F4F7FA` | `#14212B` | `#5B6B7B` | `#DCE4EB` |
+| Frontmatter (`colors:`) | `#00446A` | `#006B5F` | `#F6F9FF` | `#101D27` | `#41474F` | `#C1C7D0` |
+
+**Manda el frontmatter**, porque es el bloque que el `code.html` de cada mockup carga como
+configuración de Tailwind: es literalmente lo que se ve en los `screen.png`. La prosa es una
+narración que Stitch escribió aparte y que se quedó desfasada.
+
+El `#0B5C8C` de la prosa sigue existiendo en el esquema real, pero como `primary-container`, no
+como acción principal, y como primera parada del degradado del panel de marca
+(`from-[#0B5C8C] via-primary to-[#073A58]`).
+
+Lo demás: Plus Jakarta Sans + Inter, radios 10/12 px, controles de 44 px, tres niveles de
+elevación, pills de estado con icono y borde.
 
 ## Aplicado (2026-09-23)
 
@@ -27,8 +45,12 @@ primario `#0B5C8C`, acento aqua `#14B8A6`, fondo `#F4F7FA`, Plus Jakarta Sans + 
   tiene que funcionar sin salida a internet. Hasta ahora las fuentes solo estaban declaradas en
   los tokens y el navegador caía en la pila del sistema, así que el diseño nunca se vio.
 - **Tokens** (`src/styles/tokens.css`): bordes propios para cada pill de estado, los tres niveles
-  de sombra de `DESIGN.md`, anillos de foco (`--ring-primary`, `--ring-danger`), degradados de
-  marca y de hero, `--color-primary-active` a `#06334F`. Todo con su equivalente en modo oscuro.
+  de sombra de `DESIGN.md`, anillos de foco (`--ring-primary`, `--ring-danger`) y degradados de
+  marca y de hero. Todo con su equivalente en modo oscuro.
+- **Corrección de paleta (2026-09-23, misma sesión).** El primer intento tomó los colores de la
+  prosa de `DESIGN.md` y quedaron visiblemente distintos a los mockups: azul más claro, aqua
+  turquesa en vez de verde azulado y superficies grises en vez de azuladas. Corregido a los
+  tokens del frontmatter, que son los que pinta el `code.html`.
 - **Logo real** en `src/components/BrandLogo.tsx` (`BrandMark` + `BrandLockup`): corazón con la
   línea de pulso y la cruz clínica, en SVG y con `currentColor`. En los mockups el logo salía como
   un cuadro vacío. Reemplaza también el favicon morado de Vite.
@@ -42,15 +64,36 @@ primario `#0B5C8C`, acento aqua `#14B8A6`, fondo `#F4F7FA`, Plus Jakarta Sans + 
 - **Componentes**: tarjeta en reposo al nivel 1 y al nivel 2 solo si es enlace; día seleccionado
   macizo en primario; paso del asistente hecho en aqua con un visto y paso actual en primario.
 
-### Desviaciones deliberadas respecto a `DESIGN.md`
+### Mapa de tokens: Stitch → roles del proyecto
 
-Las tres son por accesibilidad; si el usuario prefiere fidelidad literal, se cambian en `tokens.css`.
-
-| `DESIGN.md` | Implementado | Motivo |
+| Rol en `tokens.css` | Token de Stitch | Valor |
 |---|---|---|
-| Borde de campo `#DCE4EB` | `--color-border-strong` (`#B7C4D0`) | `#DCE4EB` sobre blanco da ~1.3:1 y WCAG 1.4.11 pide 3:1 para bordes de control |
-| Foco de botón con aqua `#14B8A6` | `--color-focus` (`#1D7FC0`) | El aqua sobre blanco da 2.3:1; el azul de foco cumple 3:1 |
-| Franja elegida con fondo `#14B8A6` | `--color-accent-strong` (`#0F766E`) | Texto blanco sobre `#14B8A6` da 2.3:1; sobre `#0F766E` da 4.9:1 |
+| `--color-bg` | `surface` / `background` | `#F6F9FF` |
+| `--color-surface` | `surface-container-lowest` | `#FFFFFF` |
+| `--color-surface-muted` | `surface-container-low` | `#EBF5FF` |
+| `--color-text` | `on-surface` | `#101D27` |
+| `--color-text-secondary` | `on-surface-variant` | `#41474F` |
+| `--color-border` | `outline-variant` | `#C1C7D0` |
+| `--color-border-strong` | `outline` | `#717880` |
+| `--color-primary` | `primary` | `#00446A` |
+| `--color-primary-soft` | `primary-fixed` | `#CDE5FF` |
+| `--color-primary-container` | `primary-container` | `#0B5C8C` |
+| `--color-accent` | `secondary` | `#006B5F` |
+| `--color-accent-strong` | `on-secondary-fixed-variant` | `#005048` |
+| `--color-accent-soft` | `secondary-container` | `#6DF5E1` |
+| `--color-danger` | `error` | `#BA1A1A` |
+| `--color-danger-soft` | `error-container` | `#FFDAD6` |
+| `--color-focus` | `surface-tint` | `#1A6393` |
+| `--color-on-brand-muted` | `primary-fixed` | `#CDE5FF` |
+| `--color-on-brand-accent` | `secondary-fixed` | `#71F8E4` |
+
+Los colores de las pills de estado no salen de los tokens: en el `code.html` son utilidades de
+Tailwind (`bg-amber-100 text-amber-900` y equivalentes), que es exactamente lo que ya había.
+
+**Sobre accesibilidad:** el esquema real de Stitch es Material, así que sus pares ya están
+calculados para contraste y no hizo falta desviarse de él. `#717880` en bordes de control da
+≈4.5:1 (WCAG 1.4.11 pide 3:1), `#41474F` como texto secundario da 9.4:1 y `#00446A` como acción
+principal, 10.3:1. La paleta de la prosa sí obligaba a tres desviaciones; con la buena, ninguna.
 
 ## Contenido inventado por Stitch: qué se descartó
 

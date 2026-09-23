@@ -179,8 +179,8 @@
   height: 36px;
   border-radius: var(--radius-control);
   /* Marca: colores fijos en ambos temas para conservar el contraste del icono blanco. */
-  background: linear-gradient(135deg, #0b5c8c, #0f766e);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--color-primary-container), var(--color-accent));
+  color: var(--color-on-brand);
 }
 
 /* Tarjeta de identidad: rol, nombre y documento con el que estás viendo la aplicación. */
@@ -1745,11 +1745,11 @@ a.card:hover {
 
 .date-chip--selected .date-chip__weekday,
 .date-chip--selected .date-chip__month {
-  color: rgba(255, 255, 255, 0.82);
+  color: color-mix(in srgb, var(--color-on-primary) 82%, transparent);
 }
 
 .date-chip--selected .date-chip__dot {
-  background: #ffffff;
+  background: var(--color-on-primary);
 }
 
 /* -------------------------------------------------------------------------- */

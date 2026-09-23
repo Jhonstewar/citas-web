@@ -1,58 +1,76 @@
 /**
  * Tokens del sistema visual "Calm Clinical Clarity".
  *
- * Fuente de verdad: el `DESIGN.md` del diseño aprobado en Stitch, archivado en
- * `../../docs/diseno/stitch/`. Primario #0B5C8C, acento aqua #14B8A6 con moderación,
- * estados siempre con icono + texto + borde, tres niveles de elevación y modo oscuro
- * por `prefers-color-scheme`.
+ * Fuente de verdad: el bloque de tokens del `DESIGN.md` de Stitch — el mismo que consume el
+ * `code.html` de los mockups, archivados en `../../docs/diseno/stitch/`. Es un esquema
+ * Material: primario #00446A, aqua #006B5F, superficies azuladas sobre #F6F9FF.
+ *
+ * OJO: la prosa de `DESIGN.md` describe otra paleta (#0B5C8C, #14B8A6, fondo #F4F7FA) que no
+ * coincide con la que los mockups pintan de verdad. Manda el bloque de tokens; el #0B5C8C sigue
+ * vivo, pero solo como `primary-container` y como primera parada del degradado de marca.
+ *
+ * Estados siempre con icono + texto + borde, tres niveles de elevación y modo oscuro por
+ * `prefers-color-scheme`.
  * Si el diseño aprobado cambia un valor, se cambia AQUÍ y se propaga solo.
  */
 :root {
   color-scheme: light;
 
-  /* Color: roles semánticos, no una paleta suelta */
-  --color-bg: #f4f7fa;
-  --color-surface: #ffffff;
-  --color-surface-muted: #eef3f7;
+  /* Color: roles semánticos, no una paleta suelta. Entre paréntesis, el token de Stitch. */
+  --color-bg: #f6f9ff; /* surface / background */
+  --color-surface: #ffffff; /* surface-container-lowest */
+  --color-surface-muted: #ebf5ff; /* surface-container-low */
   --color-surface-raised: #ffffff;
-  --color-text: #14212b;
-  --color-text-secondary: #5b6b7b;
-  --color-border: #dce4eb;
-  --color-border-strong: #b7c4d0;
+  --color-text: #101d27; /* on-surface */
+  --color-text-secondary: #41474f; /* on-surface-variant */
+  --color-border: #c1c7d0; /* outline-variant */
+  --color-border-strong: #717880; /* outline — 4.1:1 sobre blanco, cumple WCAG 1.4.11 */
 
-  --color-primary: #0b5c8c;
-  --color-primary-hover: #094a71;
-  --color-primary-active: #06334f;
-  --color-primary-soft: #e3eff7;
+  --color-primary: #00446a; /* primary */
+  --color-primary-hover: #003657;
+  --color-primary-active: #002a44;
+  --color-primary-soft: #cde5ff; /* primary-fixed */
   --color-on-primary: #ffffff;
 
-  /* Panel de marca: degradado azul → azul profundo con un halo aqua. Solo en marca y hero. */
-  --gradient-brand: linear-gradient(155deg, #0b5c8c 0%, #094a71 45%, #06334f 100%);
-  --gradient-brand-glow: radial-gradient(60% 45% at 78% 12%, rgba(20, 184, 166, 0.28), transparent 70%);
-  --gradient-hero: linear-gradient(120deg, #e9f2f9 0%, #f4f9fb 55%, #e4f5f2 100%);
+  /* #0B5C8C es primary-container: solo bloques de marca, no la acción principal. */
+  --color-primary-container: #0b5c8c;
 
-  /* Acento aqua: progreso, selección y realces. Nunca como color de texto sobre blanco. */
-  --color-accent: #14b8a6;
-  --color-accent-strong: #0f766e;
-  --color-accent-soft: #ddf6f2;
+  /*
+   * Panel de marca. El degradado es el del mockup al pie de la letra
+   * (from-[#0B5C8C] via-primary to-[#073A58]) y el halo es el orbe aqua difuminado.
+   */
+  --gradient-brand: linear-gradient(155deg, #0b5c8c 0%, #00446a 50%, #073a58 100%);
+  --gradient-brand-glow: radial-gradient(60% 45% at 78% 12%, rgba(109, 245, 225, 0.2), transparent 70%);
+  --gradient-hero: linear-gradient(120deg, #ebf5ff 0%, #f6f9ff 55%, #e2effe 100%);
+
+  /* Texto sobre el panel azul: los tokens "fixed" de Stitch, no blancos translúcidos. */
+  --color-on-brand: #ffffff;
+  --color-on-brand-muted: #cde5ff; /* primary-fixed */
+  --color-on-brand-accent: #71f8e4; /* secondary-fixed */
+
+  /* Acento aqua (secondary): progreso, selección y realces. */
+  --color-accent: #006b5f; /* secondary */
+  --color-accent-strong: #005048; /* on-secondary-fixed-variant */
+  --color-accent-soft: #6df5e1; /* secondary-container */
   --color-on-accent: #ffffff;
+  --color-on-accent-soft: #006f64; /* on-secondary-container */
 
   --color-success: #15803d;
   --color-success-soft: #dcfce7;
-  --color-danger: #b91c1c;
-  --color-danger-hover: #991b1b;
-  --color-danger-soft: #fee2e2;
+  --color-danger: #ba1a1a; /* error */
+  --color-danger-hover: #93000a; /* on-error-container */
+  --color-danger-soft: #ffdad6; /* error-container */
   --color-on-danger: #ffffff;
   --color-on-success: #ffffff;
   --color-warning: #b45309;
   --color-warning-soft: #fef3c7;
-  --color-info: #0b5c8c;
-  --color-info-soft: #e3eff7;
+  --color-info: #00446a;
+  --color-info-soft: #e2effe; /* surface-container */
 
-  --color-focus: #1d7fc0;
-  --color-disabled-bg: #edf1f5;
-  --color-disabled-text: #7d8c9b;
-  --color-scrim: rgba(12, 22, 32, 0.48);
+  --color-focus: #1a6393; /* surface-tint — 4.6:1 sobre blanco */
+  --color-disabled-bg: #e2effe;
+  --color-disabled-text: #717880;
+  --color-scrim: rgba(16, 29, 39, 0.45);
 
   /* Estados de cita: texto oscuro sobre fondo claro, contraste AA (≥ 4.5:1), con borde propio */
   --status-requested-fg: #92400e;
@@ -126,8 +144,8 @@
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.1), 0 2px 6px rgba(16, 24, 40, 0.04);
 
   /* Anillos de foco de los campos: color del rol + 3 px translúcidos */
-  --ring-primary: 0 0 0 3px rgba(11, 92, 140, 0.15);
-  --ring-danger: 0 0 0 3px rgba(185, 28, 28, 0.15);
+  --ring-primary: 0 0 0 3px rgba(0, 68, 106, 0.18);
+  --ring-danger: 0 0 0 3px rgba(186, 26, 26, 0.18);
 
   /* Movimiento: solo para confirmar estado, nunca decorativo */
   --motion-fast: 120ms;
@@ -149,41 +167,43 @@
   :root {
     color-scheme: dark;
 
-    --color-bg: #0e1620;
-    --color-surface: #16212c;
-    --color-surface-muted: #1c2935;
-    --color-surface-raised: #1b2733;
-    --color-text: #e6edf3;
-    --color-text-secondary: #a3b3c2;
-    --color-border: #2a3a49;
-    --color-border-strong: #3d5163;
+    --color-bg: #0d1720;
+    --color-surface: #14222c;
+    --color-surface-muted: #1b2b37;
+    --color-surface-raised: #16242f;
+    --color-text: #e6f2ff; /* inverse-on-surface */
+    --color-text-secondary: #c1c7d0; /* outline-variant */
+    --color-border: #3a4650;
+    --color-border-strong: #717880; /* outline */
 
-    --color-primary: #5fb0e3;
-    --color-primary-hover: #7dc0ea;
-    --color-primary-active: #9ccff0;
-    --color-primary-soft: #14344a;
-    --color-on-primary: #06243a;
+    --color-primary: #94ccff; /* inverse-primary */
+    --color-primary-hover: #b5dcff;
+    --color-primary-active: #cde5ff;
+    --color-primary-soft: #004b74; /* on-primary-fixed-variant */
+    --color-on-primary: #001d32; /* on-primary-fixed */
+    --color-primary-container: #0b5c8c;
 
-    --color-accent: #2dd4bf;
-    --color-accent-strong: #5eead4;
-    --color-accent-soft: #0f3b37;
-    --color-on-accent: #042f2e;
+    --color-accent: #4fdbc8; /* secondary-fixed-dim */
+    --color-accent-strong: #71f8e4; /* secondary-fixed */
+    --color-accent-soft: #005048;
+    --color-on-accent: #00201c; /* on-secondary-fixed */
+    --color-on-accent-soft: #6df5e1;
 
     --color-success: #4ade80;
     --color-success-soft: #0f3320;
-    --color-danger: #f87171;
-    --color-danger-hover: #fca5a5;
-    --color-danger-soft: #3b1618;
-    --color-on-danger: #2a0a0a;
+    --color-danger: #ffb4ab;
+    --color-danger-hover: #ffdad6;
+    --color-danger-soft: #93000a; /* on-error-container */
+    --color-on-danger: #690005;
     --color-on-success: #052e16;
     --color-warning: #fbbf24;
     --color-warning-soft: #3a2a0a;
-    --color-info: #5fb0e3;
-    --color-info-soft: #14344a;
+    --color-info: #94ccff;
+    --color-info-soft: #004b74;
 
-    --color-focus: #7cc4f0;
-    --color-disabled-bg: #1f2b36;
-    --color-disabled-text: #75879a;
+    --color-focus: #94ccff;
+    --color-disabled-bg: #1b2b37;
+    --color-disabled-text: #8b939b;
     --color-scrim: rgba(0, 0, 0, 0.6);
 
     --status-requested-fg: #fcd34d;
@@ -206,14 +226,17 @@
     --status-noshow-border: #454f5b;
 
     /* El panel de marca conserva el azul institucional: es identidad, no superficie. */
-    --gradient-brand: linear-gradient(155deg, #0a4e77 0%, #073d5e 45%, #05293f 100%);
-    --gradient-hero: linear-gradient(120deg, #17293a 0%, #16212c 55%, #14302d 100%);
+    --gradient-brand: linear-gradient(155deg, #0a4e77 0%, #003a5a 50%, #05293f 100%);
+    --gradient-hero: linear-gradient(120deg, #17293a 0%, #14222c 55%, #123029 100%);
+    --color-on-brand: #ffffff;
+    --color-on-brand-muted: #cde5ff;
+    --color-on-brand-accent: #71f8e4;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
 
-    --ring-primary: 0 0 0 3px rgba(95, 176, 227, 0.25);
-    --ring-danger: 0 0 0 3px rgba(248, 113, 113, 0.25);
+    --ring-primary: 0 0 0 3px rgba(148, 204, 255, 0.25);
+    --ring-danger: 0 0 0 3px rgba(255, 180, 171, 0.25);
   }
 }

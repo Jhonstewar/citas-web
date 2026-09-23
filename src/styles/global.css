@@ -125,11 +125,11 @@ ol {
 }
 
 .brand--light {
-  color: #ffffff;
+  color: var(--color-on-brand);
 }
 
 .brand--light .brand__institution {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--color-on-brand-muted);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -150,9 +150,9 @@ ol {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5) var(--space-4);
-  background-color: var(--color-primary-active);
+  background-color: var(--color-primary);
   background-image: var(--gradient-brand-glow), var(--gradient-brand);
-  color: #ffffff;
+  color: var(--color-on-brand);
 }
 
 .auth__ecg {
@@ -182,12 +182,12 @@ ol {
   align-self: flex-start;
   padding: 0.25rem 0.7rem;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--color-on-brand-accent);
 }
 
 .auth__headline {
@@ -202,11 +202,11 @@ ol {
 /* El acento aqua marca el remate de la frase; no es énfasis tipográfico. */
 .auth__headline em {
   font-style: normal;
-  color: #7ee7dc;
+  color: var(--color-on-brand-accent);
 }
 
 .auth__lead {
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--color-on-brand-muted);
   font-size: var(--text-sm);
   max-width: 34rem;
 }
@@ -236,8 +236,8 @@ ol {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: var(--radius-control);
-  background: rgba(20, 184, 166, 0.18);
-  color: #7ee7dc;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-on-brand-accent);
 }
 
 .auth__highlight-title,
@@ -251,7 +251,7 @@ ol {
 }
 
 .auth__highlight-text {
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--color-on-brand-muted);
   font-size: var(--text-sm);
 }
 
@@ -259,7 +259,7 @@ ol {
   margin-top: auto;
   padding-top: var(--space-3);
   border-top: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--color-on-brand-muted);
   font-size: var(--text-xs);
   max-width: 34rem;
 }
