@@ -265,3 +265,26 @@ describe('request — renovación ante 401', () => {
     expect(refresher).not.toHaveBeenCalled();
   });
 });
+
+describe('request — credenciales (cookie del refresh token, D36)', () => {
+  it('con withCredentials sale con credentials "include" y, sin cuerpo, sin Content-Type', async () => {
+    fetchMock.mockResolvedValueOnce(response(204));
+
+    await request('/api/auth/logout', { method: 'POST', authenticated: false, withCredentials: true });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.credentials).toBe('include');
+    expect(init.body).toBeUndefined();
+    expect((init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+  });
+
+  it('por defecto no envía credenciales: la cookie solo hace falta en /api/auth', async () => {
+    setAccessTokenProvider(() => 'access');
+    fetchMock.mockResolvedValueOnce(response(200, { ok: true }));
+
+    await request('/api/me');
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.credentials).toBeUndefined();
+  });
+});

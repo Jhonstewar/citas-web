@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarCheck,
   CalendarDays,
+  Check,
   Clock,
   HeartPulse,
   Hourglass,
@@ -12,7 +13,7 @@ import {
   Timer,
   TriangleAlert,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router';
 import { toApiError, type ApiError } from '../../../api/ApiError';
 import {
@@ -31,6 +32,7 @@ import {
 } from '../../../api/contracts';
 import { bookAppointment } from '../../../api/patientApi';
 import { Card } from '../../../components/Card';
+import { DetailItem, DetailList } from '../../../components/DetailList';
 import { ChoiceCards } from '../../../components/ChoiceControls';
 import { EmptyState } from '../../../components/EmptyState';
 import { ErrorState } from '../../../components/ErrorState';
@@ -246,7 +248,8 @@ export function BookingPage() {
                 {...(state === 'current' ? { 'aria-current': 'step' as const } : {})}
               >
                 <span className="stepper__num" aria-hidden="true">
-                  {number}
+                  {/* El paso hecho se marca con un visto; el número ya no aporta nada. */}
+                  {state === 'done' ? <Check size={16} /> : number}
                 </span>
                 <span className="stepper__label">{label}</span>
                 <span className="visually-hidden">
@@ -395,31 +398,31 @@ export function BookingPage() {
         {step === 4 && offer !== null && specialty !== null ? (
           <div className="stack">
             <p className="muted">Revisa los datos antes de confirmar.</p>
-            <dl className="details details--2">
-              <SummaryItem icon={<Stethoscope size={18} />} label="Especialidad">
+            <DetailList columns={2}>
+              <DetailItem icon={<Stethoscope size={18} />} label="Especialidad">
                 {specialty.name} · {specialty.appointmentType === 'GENERAL' ? 'Cita general' : 'Cita especializada'}
-              </SummaryItem>
-              <SummaryItem icon={<Stethoscope size={18} />} label="Profesional">
+              </DetailItem>
+              <DetailItem icon={<Stethoscope size={18} />} label="Profesional">
                 {offer.professional.fullName}
-              </SummaryItem>
-              <SummaryItem icon={<MapPin size={18} />} label="Sede">
+              </DetailItem>
+              <DetailItem icon={<MapPin size={18} />} label="Sede">
                 {offer.site.name}
                 {siteDetail !== undefined ? (
                   <span className="muted text-sm" style={{ display: 'block' }}>
                     {siteDetail.address}, {siteDetail.city}
                   </span>
                 ) : null}
-              </SummaryItem>
-              <SummaryItem icon={<CalendarDays size={18} />} label="Fecha">
+              </DetailItem>
+              <DetailItem icon={<CalendarDays size={18} />} label="Fecha">
                 {formatLongDate(offer.date)}
-              </SummaryItem>
-              <SummaryItem icon={<Clock size={18} />} label="Hora">
+              </DetailItem>
+              <DetailItem icon={<Clock size={18} />} label="Hora">
                 {offer.startTime} – {offer.endTime}
-              </SummaryItem>
-              <SummaryItem icon={<Timer size={18} />} label="Duración">
+              </DetailItem>
+              <DetailItem icon={<Timer size={18} />} label="Duración">
                 {offer.durationMinutes} minutos
-              </SummaryItem>
-            </dl>
+              </DetailItem>
+            </DetailList>
             {specialty.appointmentType === 'SPECIALIZED' ? (
               <p className="note note--warning">
                 <Hourglass size={18} aria-hidden="true" />
@@ -471,28 +474,6 @@ export function BookingPage() {
           )}
         </div>
       </Card>
-    </div>
-  );
-}
-
-function SummaryItem({
-  icon,
-  label,
-  children,
-}: {
-  icon: ReactNode;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="details__item">
-      <span className="details__icon" aria-hidden="true">
-        {icon}
-      </span>
-      <div>
-        <dt>{label}</dt>
-        <dd>{children}</dd>
-      </div>
     </div>
   );
 }

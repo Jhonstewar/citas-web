@@ -1,5 +1,7 @@
 import {
+  Building2,
   CalendarCheck,
+  CalendarClock,
   ClipboardList,
   Inbox,
   Stethoscope,
@@ -24,7 +26,9 @@ interface StatDef {
 }
 
 const STATS: readonly StatDef[] = [
-  { key: 'pendingRequests', label: 'Solicitudes pendientes', icon: Inbox, tone: 'warning', to: '/admin/solicitudes' },
+  { key: 'pendingRequests', label: 'Solicitudes pendientes', icon: Inbox, tone: 'warning', to: '/admin/solicitudes?tipo=APPOINTMENT_REQUEST' },
+  // S4 · HU-029/HU-031: enlaza a la bandeja ya filtrada por reprogramaciones.
+  { key: 'pendingReschedules', label: 'Reprogramaciones pendientes', icon: CalendarClock, tone: 'warning', to: '/admin/solicitudes?tipo=RESCHEDULE_REQUEST' },
   { key: 'activeProfessionals', label: 'Profesionales activos', icon: Stethoscope, tone: '', to: '/admin/profesionales' },
   { key: 'activeSpecialties', label: 'Especialidades activas', icon: ClipboardList, tone: 'accent', to: '/admin/especialidades' },
   { key: 'appointmentsToday', label: 'Citas de hoy', icon: CalendarCheck, tone: 'success', to: '/admin/solicitudes' },
@@ -86,6 +90,10 @@ export function AdminDashboardPage() {
           <Link className="button button--ghost button--link" to="/admin/especialidades">
             <ClipboardList size={18} aria-hidden="true" />
             Gestionar especialidades
+          </Link>
+          <Link className="button button--ghost button--link" to="/admin/eps">
+            <Building2 size={18} aria-hidden="true" />
+            Gestionar EPS y planes
           </Link>
         </div>
       </Card>

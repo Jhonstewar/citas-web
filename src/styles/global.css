@@ -79,26 +79,204 @@ ol {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Marco de autenticación                                                     */
+/* Marca                                                                      */
+/* -------------------------------------------------------------------------- */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.brand__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brand__name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.brand__institution {
+  font-size: 0.6875rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.brand--dark {
+  color: var(--color-primary);
+}
+
+.brand--dark .brand__institution {
+  color: var(--color-text-secondary);
+}
+
+.brand--light {
+  color: var(--color-on-brand);
+}
+
+.brand--light .brand__institution {
+  color: var(--color-on-brand-muted);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Marco de autenticación: pantalla partida marca + formulario                */
 /* -------------------------------------------------------------------------- */
 
 .auth {
   min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+/* Panel de marca. En móvil es solo una cabecera azul compacta. */
+.auth__brand-panel {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  background-color: var(--color-primary);
+  background-image: var(--gradient-brand-glow), var(--gradient-brand);
+  color: var(--color-on-brand);
+}
+
+.auth__ecg {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 12%;
+  width: 100%;
+  height: 7.5rem;
+  color: rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+}
+
+.auth__brand-head,
+.auth__pitch,
+.auth__highlights,
+.auth__panel-foot {
+  position: relative;
+}
+
+.auth__pitch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.auth__eyebrow {
+  align-self: flex-start;
+  padding: 0.25rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  color: var(--color-on-brand-accent);
+}
+
+.auth__headline {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* El acento aqua marca el remate de la frase; no es énfasis tipográfico. */
+.auth__headline em {
+  font-style: normal;
+  color: var(--color-on-brand-accent);
+}
+
+.auth__lead {
+  color: var(--color-on-brand-muted);
+  font-size: var(--text-sm);
+  max-width: 34rem;
+}
+
+.auth__highlights {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  max-width: 34rem;
+}
+
+.auth__highlight {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.auth__highlight-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-on-brand-accent);
+}
+
+.auth__highlight-title,
+.auth__highlight-text {
+  display: block;
+}
+
+.auth__highlight-title {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-base);
+}
+
+.auth__highlight-text {
+  color: var(--color-on-brand-muted);
+  font-size: var(--text-sm);
+}
+
+.auth__panel-foot {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--color-on-brand-muted);
+  font-size: var(--text-xs);
+  max-width: 34rem;
+}
+
+/* Panel del formulario */
+.auth__form-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-4) var(--space-6);
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-surface);
 }
 
 .auth__card {
   width: 100%;
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -118,28 +296,16 @@ ol {
   gap: var(--space-2);
 }
 
-.auth__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-primary);
-}
-
-.auth__brand-mark {
-  width: 10px;
-  height: 20px;
-  border-radius: 3px;
-  background: var(--color-primary);
+/* La marca se repite sobre el formulario solo en móvil, donde el panel azul es mínimo. */
+.auth__header .brand {
+  margin-bottom: var(--space-2);
 }
 
 .auth__title {
   font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
 }
 
 .auth__subtitle {
@@ -163,10 +329,45 @@ ol {
 }
 
 .auth__disclaimer {
+  width: 100%;
   max-width: var(--card-wide);
   text-align: center;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
+}
+
+/* Escritorio: dos columnas al 50 %, con el panel de marca completo. */
+@media (min-width: 64rem) {
+  .auth {
+    grid-template-rows: none;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .auth__brand-panel {
+    gap: var(--space-6);
+    padding: var(--space-7) var(--space-6);
+    justify-content: center;
+  }
+
+  .auth__headline {
+    font-size: var(--text-2xl);
+  }
+
+  .auth__lead {
+    font-size: var(--text-md);
+  }
+
+  .auth__highlights {
+    display: flex;
+  }
+
+  .auth__form-panel {
+    padding: var(--space-7) var(--space-6);
+  }
+
+  .auth__header .brand {
+    display: none;
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -218,6 +419,21 @@ ol {
 
 .field__input:hover:not(:disabled) {
   border-color: var(--color-primary);
+}
+
+/*
+ * Foco del diseño aprobado: el borde toma el color del rol y lo acompaña un anillo
+ * translúcido de 3 px. Sustituye al contorno global para no dibujar dos anillos.
+ */
+.field__input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--ring-primary);
+}
+
+.field__input--error:focus-visible {
+  border-color: var(--color-danger);
+  box-shadow: var(--ring-danger);
 }
 
 .field__input:disabled {

@@ -1,4 +1,4 @@
-import { CalendarRange, CircleCheck, Layers, MapPin, Star, Stethoscope, UserRound } from 'lucide-react';
+import { CalendarCheck, CalendarRange, CircleCheck, Layers, MapPin, Star, Stethoscope, UserRound } from 'lucide-react';
 import { Link } from 'react-router';
 import { getMyProfile, listBlocks } from '../../api/professionalApi';
 import { useCurrentUser } from '../../auth/CurrentUserContext';
@@ -28,10 +28,16 @@ export function ProfessionalHomePage() {
         title={`Hola, ${user.firstNames}`}
         description="Tu semana de un vistazo. Publica bloques de disponibilidad para que los pacientes puedan reservar."
         actions={
-          <Link className="button button--primary button--link" to="/profesional/agenda">
-            <CalendarRange size={18} aria-hidden="true" />
-            Gestionar agenda
-          </Link>
+          <>
+            <Link className="button button--ghost button--link" to="/profesional/agenda?vista=citas">
+              <CalendarCheck size={18} aria-hidden="true" />
+              Ver mis citas de hoy
+            </Link>
+            <Link className="button button--primary button--link" to="/profesional/agenda">
+              <CalendarRange size={18} aria-hidden="true" />
+              Gestionar agenda
+            </Link>
+          </>
         }
       />
 

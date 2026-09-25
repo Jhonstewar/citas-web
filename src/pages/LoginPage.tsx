@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { login } from '../api/authApi';
 import { ApiError, toApiError } from '../api/ApiError';
 import { AuthLayout } from '../components/AuthLayout';
@@ -18,9 +18,15 @@ import {
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
-/** RF-02 · Inicio de sesión por email + contraseña. */
+/**
+ * RF-02 · Inicio de sesión por email + contraseña.
+ *
+ * Si ya hay sesión (p. ej. la cookie del refresh token la restauró al recargar /login, D36), no
+ * tiene sentido pedir credenciales: se redirige al inicio del rol (`/` → `RoleHomeRedirect`) o a
+ * la ruta de retorno que dejó `RequireAuth`.
+ */
 export function LoginPage() {
-  const { signIn } = useSession();
+  const { signIn, status: sessionStatus } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,6 +42,12 @@ export function LoginPage() {
   const state = location.state as { from?: string; registeredEmail?: string } | null;
   const redirectTo = state?.from ?? '/';
   const registeredEmail = state?.registeredEmail;
+
+  // Sesión ya abierta al llegar, o restaurada mientras se mostraba el formulario. El éxito del
+  // propio formulario ya navega desde `handleSubmit`; aquí se cubre el resto de casos.
+  if (sessionStatus === 'authenticated' && status !== 'success') {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   function update(field: LoginField, value: string) {
     setValues((previous) => ({ ...previous, [field]: value }));

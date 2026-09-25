@@ -6,6 +6,8 @@ import { RequireRole, RoleHomeRedirect } from './auth/RequireRole';
 import { SessionProvider } from './auth/SessionProvider';
 import { ToastProvider } from './components/ToastProvider';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
+import { EpsDetailPage } from './pages/admin/EpsDetailPage';
+import { EpsPage } from './pages/admin/EpsPage';
 import { InboxPage } from './pages/admin/InboxPage';
 import { ProfessionalCreatePage } from './pages/admin/ProfessionalCreatePage';
 import { ProfessionalEditPage } from './pages/admin/ProfessionalEditPage';
@@ -17,10 +19,13 @@ import { AppointmentDetailPage } from './pages/patient/AppointmentDetailPage';
 import { BookingPage } from './pages/patient/booking/BookingPage';
 import { MyAppointmentsPage } from './pages/patient/MyAppointmentsPage';
 import { PatientHomePage } from './pages/patient/PatientHomePage';
+import { ProfilePage } from './pages/patient/ProfilePage';
+import { ReschedulePage } from './pages/patient/ReschedulePage';
 import { AgendaPage } from './pages/professional/AgendaPage';
 import { ProfessionalHomePage } from './pages/professional/ProfessionalHomePage';
 import { RecuperarPasswordPage } from './pages/RecuperarPasswordPage';
 import { RegistroPage } from './pages/RegistroPage';
+import { RestablecerPasswordPage } from './pages/RestablecerPasswordPage';
 
 /**
  * Rutas de la aplicación.
@@ -39,6 +44,7 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/registro" element={<RegistroPage />} />
             <Route path="/recuperar-password" element={<RecuperarPasswordPage />} />
+            <Route path="/restablecer-password" element={<RestablecerPasswordPage />} />
 
             <Route
               element={
@@ -64,6 +70,8 @@ export function App() {
                 <Route path="agendar" element={<BookingPage />} />
                 <Route path="citas" element={<MyAppointmentsPage />} />
                 <Route path="citas/:id" element={<AppointmentDetailPage />} />
+                <Route path="citas/:id/reprogramar" element={<ReschedulePage />} />
+                <Route path="perfil" element={<ProfilePage />} />
                 <Route path="*" element={<InAppNotFoundPage />} />
               </Route>
 
@@ -94,6 +102,8 @@ export function App() {
                 <Route path="profesionales/nuevo" element={<ProfessionalCreatePage />} />
                 <Route path="profesionales/:id" element={<ProfessionalEditPage />} />
                 <Route path="especialidades" element={<SpecialtiesPage />} />
+                <Route path="eps" element={<EpsPage />} />
+                <Route path="eps/:id" element={<EpsDetailPage />} />
                 <Route path="*" element={<InAppNotFoundPage />} />
               </Route>
             </Route>

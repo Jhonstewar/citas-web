@@ -6,6 +6,7 @@ import { createBlock, updateBlock } from '../../api/professionalApi';
 import { FormAlert } from '../../components/FormAlert';
 import { Modal } from '../../components/Modal';
 import { SelectField } from '../../components/SelectField';
+import { SubmitButton } from '../../components/SubmitButton';
 import { TextField } from '../../components/TextField';
 import { halfHourGrid, todayIso, toMinutes } from '../../lib/dates';
 
@@ -174,10 +175,9 @@ function BlockForm({ block, sites, defaultDate, onClose, onSaved }: BlockFormMod
           <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
-          <button type="submit" className="button button--primary" disabled={saving} aria-busy={saving}>
-            {saving ? <span className="button__spinner" aria-hidden="true" /> : null}
+          <SubmitButton loading={saving} keepLabel>
             Guardar bloque
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </Modal>

@@ -9,6 +9,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { PageHeader } from '../../components/PageHeader';
 import { LoadingSection } from '../../components/Skeleton';
 import { useResource } from '../../lib/useResource';
+import { PendingRescheduleMark } from './PendingRescheduleMark';
 
 /**
  * Mis citas (HU-025): filtros por estado y fecha aplicados por el backend. Los estados del filtro
@@ -141,7 +142,11 @@ export function MyAppointmentsPage() {
           <ul className="appointment-list">
             {appointments.state.data.map((item) => (
               <li key={item.id}>
-                <AppointmentCard appointment={item} to={`/paciente/citas/${item.id}`} />
+                <AppointmentCard
+                  appointment={item}
+                  to={`/paciente/citas/${item.id}`}
+                  footer={<PendingRescheduleMark appointment={item} />}
+                />
               </li>
             ))}
           </ul>

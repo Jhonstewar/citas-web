@@ -1,18 +1,21 @@
 import { CircleCheck, CircleX, Inbox, PartyPopper, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import { toApiError, type ApiError } from '../../api/ApiError';
 import {
   approveAppointment,
+  approveReschedule,
   getInbox,
   listProfessionals,
   listSpecialties,
   rejectAppointment,
+  rejectReschedule,
 } from '../../api/adminApi';
 import { getSites } from '../../api/catalogApi';
 import {
   REJECTION_REASON_MAX,
-  type AdminAppointment,
   type InboxEntry,
+  type InboxEntryType,
   type InboxFilters,
 } from '../../api/contracts';
 import { TextAreaField } from '../../components/ChoiceControls';
@@ -26,9 +29,11 @@ import { PageHeader } from '../../components/PageHeader';
 import { SelectField } from '../../components/SelectField';
 import { LoadingSection } from '../../components/Skeleton';
 import { Badge } from '../../components/StatusBadge';
+import { SubmitButton } from '../../components/SubmitButton';
 import { useToast } from '../../components/toastContext';
 import { formatShortDate } from '../../lib/dates';
 import { useResource } from '../../lib/useResource';
+import { SlotChange } from './SlotChange';
 
 interface FilterOptions {
   sites: { value: string; label: string }[];
@@ -46,12 +51,23 @@ function loadFilterOptions(signal: AbortSignal): Promise<FilterOptions> {
   );
 }
 
-type FilterKey = 'siteId' | 'professionalId' | 'specialtyId' | 'date';
+/** Clases de entrada de la bandeja (HU-029): el filtro "Tipo" viaja como `type`. */
+const TYPE_OPTIONS: { value: InboxEntryType; label: string }[] = [
+  { value: 'APPOINTMENT_REQUEST', label: 'Citas especializadas' },
+  { value: 'RESCHEDULE_REQUEST', label: 'Reprogramaciones' },
+];
+
+function isEntryType(value: string | null): value is InboxEntryType {
+  return TYPE_OPTIONS.some((option) => option.value === value);
+}
+
+type FilterKey = 'type' | 'siteId' | 'professionalId' | 'specialtyId' | 'date';
 type FilterValues = Record<FilterKey, string>;
-const NO_FILTERS: FilterValues = { siteId: '', professionalId: '', specialtyId: '', date: '' };
+const NO_FILTERS: FilterValues = { type: '', siteId: '', professionalId: '', specialtyId: '', date: '' };
 
 function toQuery(values: FilterValues): InboxFilters {
   return {
+    type: isEntryType(values.type) ? values.type : undefined,
     siteId: values.siteId === '' ? undefined : Number(values.siteId),
     professionalId: values.professionalId === '' ? undefined : Number(values.professionalId),
     specialtyId: values.specialtyId === '' ? undefined : Number(values.specialtyId),
@@ -59,27 +75,50 @@ function toQuery(values: FilterValues): InboxFilters {
   };
 }
 
-function describe(appointment: AdminAppointment): string {
+/** Clave estable de una entrada: una reprogramación se identifica por la solicitud, no por la cita. */
+function entryKey(entry: InboxEntry): string {
+  return entry.type === 'RESCHEDULE_REQUEST'
+    ? `reprogramacion-${entry.reschedule.id}`
+    : `cita-${entry.appointment.id}`;
+}
+
+function describe(entry: InboxEntry): string {
+  const { appointment } = entry;
+  if (entry.type === 'RESCHEDULE_REQUEST') {
+    const { proposed } = entry.reschedule;
+    return `${appointment.specialty.name} de ${appointment.patient.fullName}, nueva franja ${formatShortDate(proposed.date)} ${proposed.startTime}`;
+  }
   return `${appointment.specialty.name} de ${appointment.patient.fullName}, ${formatShortDate(appointment.date)} ${appointment.startTime}`;
 }
 
+function kindLabel(entry: InboxEntry): string {
+  return entry.type === 'RESCHEDULE_REQUEST' ? 'reprogramación' : 'solicitud';
+}
+
 /**
- * Bandeja de solicitudes (HU-029, HU-030): solicitudes especializadas REQUESTED con filtros;
- * aprobar con confirmación y rechazar con motivo obligatorio. Lo decidido sale de la lista.
+ * Bandeja de pendientes (HU-029, HU-030, HU-031): solicitudes especializadas REQUESTED y
+ * reprogramaciones PENDING, con filtros (en una reprogramación, fecha y sede se aplican a la
+ * franja propuesta, D24). Aprobar pide confirmación; rechazar exige motivo. Lo decidido sale de
+ * la lista; un 409 (ya decidida, vencida o cambio concurrente) informa y recarga.
  */
 export function InboxPage() {
   const toast = useToast();
-  const [filters, setFilters] = useState<FilterValues>(NO_FILTERS);
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<FilterValues>(() => {
+    const type = searchParams.get('tipo');
+    return { ...NO_FILTERS, type: isEntryType(type) ? type : '' };
+  });
   const options = useResource(loadFilterOptions, []);
   const inbox = useResource((signal) => getInbox(toQuery(filters), signal), [
+    filters.type,
     filters.siteId,
     filters.professionalId,
     filters.specialtyId,
     filters.date,
   ]);
 
-  const [approving, setApproving] = useState<AdminAppointment | null>(null);
-  const [rejecting, setRejecting] = useState<AdminAppointment | null>(null);
+  const [approving, setApproving] = useState<InboxEntry | null>(null);
+  const [rejecting, setRejecting] = useState<InboxEntry | null>(null);
   const [busy, setBusy] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
 
@@ -87,8 +126,9 @@ export function InboxPage() {
     setFilters((previous) => ({ ...previous, [key]: value }));
   }
 
-  function removeFromList(id: number) {
-    inbox.update((entries) => entries.filter((entry) => entry.appointment.id !== id));
+  function removeFromList(target: InboxEntry) {
+    const key = entryKey(target);
+    inbox.update((entries) => entries.filter((entry) => entryKey(entry) !== key));
   }
 
   /** 409: la solicitud ya cambió (otra decisión, vencida). Se informa y se recarga la bandeja. */
@@ -98,13 +138,17 @@ export function InboxPage() {
   }
 
   async function confirmApprove() {
-    if (approving === null) return;
+    if (approving === null || busy) return;
     setBusy(true);
     setApproveError(null);
     try {
-      await approveAppointment(approving.id);
-      removeFromList(approving.id);
-      toast.show({ title: 'Solicitud aprobada', description: describe(approving) });
+      if (approving.type === 'RESCHEDULE_REQUEST') await approveReschedule(approving.reschedule.id);
+      else await approveAppointment(approving.appointment.id);
+      removeFromList(approving);
+      toast.show({
+        title: approving.type === 'RESCHEDULE_REQUEST' ? 'Reprogramación aprobada' : 'Solicitud aprobada',
+        description: describe(approving),
+      });
       setApproving(null);
     } catch (cause) {
       const error = toApiError(cause);
@@ -133,34 +177,61 @@ export function InboxPage() {
         </span>
       ),
     },
+    {
+      key: 'type',
+      header: 'Tipo',
+      render: (entry) =>
+        entry.type === 'RESCHEDULE_REQUEST' ? (
+          <span className="person__text">
+            <Badge tone="info">Reprogramación</Badge>
+            <span className="person__meta">
+              {(entry.reschedule.requestReason ?? '') !== ''
+                ? `Motivo: ${entry.reschedule.requestReason}`
+                : 'Sin motivo indicado'}
+            </span>
+          </span>
+        ) : (
+          <Badge tone="warning">Cita especializada</Badge>
+        ),
+    },
     { key: 'specialty', header: 'Especialidad', render: ({ appointment }) => appointment.specialty.name },
     { key: 'professional', header: 'Profesional', render: ({ appointment }) => appointment.professional.fullName },
-    { key: 'site', header: 'Sede', render: ({ appointment }) => appointment.site.name },
+    {
+      key: 'site',
+      header: 'Sede',
+      // En una reprogramación la sede puede cambiar (D21): se muestra la propuesta; el detalle de
+      // ambos lados está en la columna de fecha.
+      render: (entry) =>
+        entry.type === 'RESCHEDULE_REQUEST' ? entry.reschedule.proposed.site.name : entry.appointment.site.name,
+    },
     {
       key: 'when',
       header: 'Fecha y hora',
-      render: ({ appointment }) => (
-        <span>
-          <span style={{ textTransform: 'capitalize' }}>{formatShortDate(appointment.date)}</span>
-          <br />
-          {appointment.startTime} – {appointment.endTime}
-        </span>
-      ),
+      render: (entry) =>
+        entry.type === 'RESCHEDULE_REQUEST' ? (
+          <SlotChange previous={entry.reschedule.previous} proposed={entry.reschedule.proposed} />
+        ) : (
+          <span>
+            <span style={{ textTransform: 'capitalize' }}>{formatShortDate(entry.appointment.date)}</span>
+            <br />
+            {entry.appointment.startTime} – {entry.appointment.endTime}
+          </span>
+        ),
     },
     { key: 'duration', header: 'Duración', render: ({ appointment }) => `${appointment.durationMinutes} min` },
     {
       key: 'actions',
       header: 'Acciones',
       align: 'end',
-      render: ({ appointment }) => (
+      render: (entry) => (
         <span className="cluster">
           <button
             type="button"
             className="button button--success button--sm"
-            aria-label={`Aprobar solicitud de ${appointment.patient.fullName}`}
+            aria-label={`Aprobar ${kindLabel(entry)} de ${entry.appointment.patient.fullName}`}
             onClick={() => {
               setApproveError(null);
-              setApproving(appointment);
+              setApproving(entry);
             }}
           >
             <CircleCheck size={16} aria-hidden="true" />
@@ -169,8 +240,8 @@ export function InboxPage() {
           <button
             type="button"
             className="button button--danger-outline button--sm"
-            aria-label={`Rechazar solicitud de ${appointment.patient.fullName}`}
-            onClick={() => setRejecting(appointment)}
+            aria-label={`Rechazar ${kindLabel(entry)} de ${entry.appointment.patient.fullName}`}
+            onClick={() => setRejecting(entry)}
           >
             <CircleX size={16} aria-hidden="true" />
             Rechazar
@@ -188,10 +259,17 @@ export function InboxPage() {
       <PageHeader
         eyebrow="Administración"
         title="Solicitudes pendientes"
-        description="Citas especializadas que esperan tu decisión. Al rechazar, el motivo es obligatorio y el paciente lo verá."
+        description="Citas especializadas y reprogramaciones que esperan tu decisión. Al rechazar, el motivo es obligatorio y el paciente lo verá."
       />
 
       <section className="filters" aria-label="Filtros">
+        <SelectField
+          label="Tipo"
+          placeholder="Todas"
+          options={TYPE_OPTIONS}
+          value={filters.type}
+          onChange={(event) => setFilter('type', event.target.value)}
+        />
         <SelectField
           label="Sede"
           placeholder="Todas"
@@ -237,6 +315,9 @@ export function InboxPage() {
       {options.state.status === 'error' ? (
         <p className="field__hint">No se pudieron cargar las opciones de filtro: {options.state.error.message}</p>
       ) : null}
+      {filters.type !== 'APPOINTMENT_REQUEST' && (filters.date !== '' || filters.siteId !== '') ? (
+        <p className="field__hint">En las reprogramaciones, la fecha y la sede se aplican a la franja propuesta.</p>
+      ) : null}
 
       <section aria-label="Solicitudes" aria-busy={inbox.state.status === 'loading'}>
         {inbox.state.status === 'loading' ? <LoadingSection label="Cargando solicitudes…" variant="row" count={4} /> : null}
@@ -258,7 +339,7 @@ export function InboxPage() {
             <EmptyState
               icon={<PartyPopper size={36} />}
               title="¡Todo al día! No hay solicitudes pendientes"
-              description="Cuando un paciente solicite una cita especializada aparecerá aquí."
+              description="Cuando un paciente solicite una cita especializada o una reprogramación aparecerá aquí."
             />
           )
         ) : null}
@@ -272,7 +353,7 @@ export function InboxPage() {
               caption="Solicitudes pendientes"
               columns={columns}
               rows={inbox.state.data}
-              rowKey={(entry) => entry.appointment.id}
+              rowKey={entryKey}
             />
           </div>
         ) : null}
@@ -280,28 +361,41 @@ export function InboxPage() {
 
       <ConfirmDialog
         open={approving !== null}
-        title="¿Aprobar esta solicitud?"
+        title={approving?.type === 'RESCHEDULE_REQUEST' ? '¿Aprobar esta reprogramación?' : '¿Aprobar esta solicitud?'}
         confirmLabel="Aprobar"
         busy={busy}
         error={approveError}
         onCancel={() => setApproving(null)}
         onConfirm={() => void confirmApprove()}
       >
-        {approving !== null ? (
+        {approving?.type === 'RESCHEDULE_REQUEST' ? (
+          <>
+            <p>
+              La cita de <strong>{approving.appointment.specialty.name}</strong> de{' '}
+              {approving.appointment.patient.fullName} con {approving.appointment.professional.fullName} se{' '}
+              <strong>moverá</strong> a la franja propuesta. La franja actual quedará libre.
+            </p>
+            <SlotChange previous={approving.reschedule.previous} proposed={approving.reschedule.proposed} />
+          </>
+        ) : approving !== null ? (
           <p>
-            La cita de <strong>{approving.specialty.name}</strong> de {approving.patient.fullName} con{' '}
-            {approving.professional.fullName} ({approving.site.name}) quedará <strong>aprobada</strong> para el{' '}
-            {formatShortDate(approving.date)} a las {approving.startTime}.
+            La cita de <strong>{approving.appointment.specialty.name}</strong> de {approving.appointment.patient.fullName}{' '}
+            con {approving.appointment.professional.fullName} ({approving.appointment.site.name}) quedará{' '}
+            <strong>aprobada</strong> para el {formatShortDate(approving.appointment.date)} a las{' '}
+            {approving.appointment.startTime}.
           </p>
         ) : null}
       </ConfirmDialog>
 
       <RejectDialog
-        appointment={rejecting}
+        entry={rejecting}
         onClose={() => setRejecting(null)}
-        onRejected={(appointment) => {
-          removeFromList(appointment.id);
-          toast.show({ title: 'Solicitud rechazada', description: describe(appointment) });
+        onRejected={(entry) => {
+          removeFromList(entry);
+          toast.show({
+            title: entry.type === 'RESCHEDULE_REQUEST' ? 'Reprogramación rechazada' : 'Solicitud rechazada',
+            description: describe(entry),
+          });
           setRejecting(null);
         }}
         onConflict={(error) => {
@@ -313,26 +407,29 @@ export function InboxPage() {
   );
 }
 
-/** Rechazo con motivo obligatorio (1–500 caracteres, HU-030 CA-03). */
+/**
+ * Rechazo con motivo obligatorio (1–500 caracteres): solicitud especializada (HU-030 CA-03) o
+ * reprogramación (HU-031 CA-04, la cita conserva su franja).
+ */
 function RejectDialog(props: {
-  appointment: AdminAppointment | null;
+  entry: InboxEntry | null;
   onClose: () => void;
-  onRejected: (appointment: AdminAppointment) => void;
+  onRejected: (entry: InboxEntry) => void;
   onConflict: (error: ApiError) => void;
 }) {
-  if (props.appointment === null) return null;
-  return <RejectForm {...props} appointment={props.appointment} />;
+  if (props.entry === null) return null;
+  return <RejectForm {...props} entry={props.entry} />;
 }
 
 function RejectForm({
-  appointment,
+  entry,
   onClose,
   onRejected,
   onConflict,
 }: {
-  appointment: AdminAppointment;
+  entry: InboxEntry;
   onClose: () => void;
-  onRejected: (appointment: AdminAppointment) => void;
+  onRejected: (entry: InboxEntry) => void;
   onConflict: (error: ApiError) => void;
 }) {
   const [reason, setReason] = useState('');
@@ -340,6 +437,13 @@ function RejectForm({
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | undefined>(undefined);
   const trimmed = reason.trim();
+  const { appointment } = entry;
+  const isReschedule = entry.type === 'RESCHEDULE_REQUEST';
+  const label = isReschedule ? 'Rechazar reprogramación' : 'Rechazar solicitud';
+  const when =
+    entry.type === 'RESCHEDULE_REQUEST'
+      ? `nueva franja ${formatShortDate(entry.reschedule.proposed.date)} ${entry.reschedule.proposed.startTime}`
+      : `${formatShortDate(appointment.date)} ${appointment.startTime}`;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -351,8 +455,9 @@ function RejectForm({
     setSaving(true);
     setError(null);
     try {
-      await rejectAppointment(appointment.id, trimmed);
-      onRejected(appointment);
+      if (entry.type === 'RESCHEDULE_REQUEST') await rejectReschedule(entry.reschedule.id, trimmed);
+      else await rejectAppointment(appointment.id, trimmed);
+      onRejected(entry);
     } catch (cause) {
       const failure = toApiError(cause);
       if (failure.status === 409) {
@@ -369,8 +474,8 @@ function RejectForm({
   return (
     <Modal
       open
-      title="Rechazar solicitud"
-      description={`${appointment.specialty.name} · ${appointment.patient.fullName} · ${formatShortDate(appointment.date)} ${appointment.startTime}`}
+      title={label}
+      description={`${appointment.specialty.name} · ${appointment.patient.fullName} · ${when}`}
       onClose={onClose}
       dismissible={!saving}
     >
@@ -380,7 +485,11 @@ function RejectForm({
           label="Motivo del rechazo"
           required
           counterMax={REJECTION_REASON_MAX}
-          hint="El paciente verá este motivo en el detalle de su cita."
+          hint={
+            isReschedule
+              ? 'El paciente verá este motivo; su cita se mantiene en la franja actual.'
+              : 'El paciente verá este motivo en el detalle de su cita.'
+          }
           value={reason}
           error={fieldError}
           disabled={saving}
@@ -393,15 +502,9 @@ function RejectForm({
           <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="button button--danger"
-            disabled={saving || trimmed === ''}
-            aria-busy={saving}
-          >
-            {saving ? <span className="button__spinner" aria-hidden="true" /> : null}
-            Rechazar solicitud
-          </button>
+          <SubmitButton loading={saving} disabled={trimmed === ''} tone="danger" keepLabel>
+            {label}
+          </SubmitButton>
         </div>
       </form>
     </Modal>

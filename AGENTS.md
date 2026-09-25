@@ -4,10 +4,11 @@ Generado en S2 (paso 2) con `../prompts/agents/PROMPT_AGENT_CITAS_WEB.md`, a par
 código real del repositorio. La gobernanza global está en `../AGENTS.md`; este archivo la
 concreta para el frontend y **no** la contradice.
 
-> **Pendiente:** el diseño de Stitch → Google AI Studio aún no se ha importado. En S3 las
-> pantallas se construyeron con un diseño propio alineado con el Prompt 0 de
-> `../prompts/diseno/PROMPT_STITCH_S3.md` (tokens en `src/styles/tokens.css`). Cuando se
-> importe el diseño aprobado, este archivo se **revisa**: gana lo importado y aprobado.
+> **Diseño:** el sistema visual aprobado en Stitch se aplicó el 2026-09-23 (commit `08cbe02`;
+> ver `docs/diseno/stitch/RETOMA_REDISENO.md` y la wiki `dec-005-sistema-visual-stitch`). En S4
+> las pantallas nuevas se construyen **sin mockups nuevos**, con los tokens de
+> `src/styles/tokens.css` y los componentes de `src/components` (decisión D30 de
+> `dec-006-decisiones-s4-ciclo-de-vida`). No se rediseña lo ya aprobado.
 
 ## 1. Stack detectado (no cambiar por preferencia)
 
@@ -34,9 +35,11 @@ src/
 │   ├── ApiError.ts    kind, status, fieldErrors y extensiones `code`/`field` del ProblemDetail
 │   └── authApi / userApi / catalogApi / patientApi / professionalApi / adminApi
 ├── app/          AppShell (barra lateral + cabecera) y navegación por rol
-├── auth/         Sesión: sessionManager (tokens en memoria, una sola renovación en vuelo,
-│                 épocas contra carreras con el logout), SessionProvider, RequireAuth,
-│                 CurrentUserProvider (GET /api/me), RequireRole y roles.ts
+├── auth/         Sesión: sessionManager (access token en memoria, refresh en cookie HttpOnly
+│                 desde D36, una sola renovación en vuelo, épocas contra carreras con el logout,
+│                 arranque checking/unavailable), refreshLock (Web Locks entre pestañas),
+│                 SessionProvider, RequireAuth, CurrentUserProvider (GET /api/me), RequireRole
+│                 y roles.ts
 ├── components/   Sistema de componentes (Card, Modal, ConfirmDialog, DataTable, StatusBadge,
 │                 EmptyState, ErrorState, Skeleton, Toast, DateStrip, ChoiceControls…) y los de S2
 ├── lib/          dates.ts (zona America/Bogota), status.ts, useResource.ts
@@ -57,8 +60,14 @@ docs/diseno/      PANTALLAS_OBLIGATORIAS, PROMPTS_STITCH, HANDOFF_AI_STUDIO
   Si el contrato no alcanza, **no** edites `citas-api`: repórtalo al orquestador como cambio cross-repo.
 - `VITE_API_URL` es obligatoria y viene del entorno (`.env`, no versionado). Todo lo que Vite
   inyecta es público: nunca secretos, credenciales ni tokens en código o en `.env`.
-- Los tokens viven en memoria (no `localStorage`). Cambiarlo es una decisión abierta de la wiki,
-  no una iniciativa del agente.
+- Tokens (D36): solo el **access token** vive en memoria (nunca `localStorage` ni
+  `sessionStorage`). El **refresh token** viaja en la cookie `HttpOnly` `fcv_refresh`
+  (`SameSite=Strict; Path=/api/auth`) que emite y rota el servidor: JavaScript no lo ve, no lo
+  guarda y no lo envía en ningún cuerpo. `credentials: 'include'` se usa **solo** en
+  `/api/auth/**` (login, refresh, logout); el resto de la API va sin credenciales y con
+  `Authorization: Bearer`. Al arrancar (F5) se restaura la sesión con un refresh: 401 → login;
+  red caída o 5xx → estado `unavailable` con "Reintentar" en las rutas protegidas. Cambiar este
+  modelo es una decisión de la wiki, no una iniciativa del agente.
 - Alta fidelidad al diseño aprobado: al reconciliar lo importado de AI Studio se preservan los
   componentes, tokens y estilos que ya son correctos; no se rediseñan pantallas aprobadas.
 - Cada pantalla contempla sus estados: `loading`, `empty`, `error`, `success` y `disabled`, con

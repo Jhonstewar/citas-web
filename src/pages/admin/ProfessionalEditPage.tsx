@@ -19,6 +19,7 @@ import { FormAlert } from '../../components/FormAlert';
 import { PageHeader } from '../../components/PageHeader';
 import { LoadingSection } from '../../components/Skeleton';
 import { Badge } from '../../components/StatusBadge';
+import { SubmitButton } from '../../components/SubmitButton';
 import { TextField } from '../../components/TextField';
 import { useToast } from '../../components/toastContext';
 import { notFound } from '../../lib/notFound';
@@ -181,10 +182,9 @@ function useSectionSave(onSaved: (saved: Professional) => void) {
 function SectionActions({ saving, label }: { saving: boolean; label: string }) {
   return (
     <div className="form-actions">
-      <button type="submit" className="button button--primary" disabled={saving} aria-busy={saving}>
-        {saving ? <span className="button__spinner" aria-hidden="true" /> : null}
+      <SubmitButton loading={saving} keepLabel>
         {label}
-      </button>
+      </SubmitButton>
     </div>
   );
 }

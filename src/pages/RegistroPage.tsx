@@ -1,8 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { register } from '../api/authApi';
-import { ApiError, toApiError } from '../api/ApiError';
-import { DOCUMENT_TYPES } from '../api/contracts';
+import { ApiError, DEFAULT_MESSAGE_BY_KIND, toApiError } from '../api/ApiError';
+import { getInsurancePlans } from '../api/catalogApi';
+import { DOCUMENT_TYPES, ERROR_CODES, type InsurancePlan } from '../api/contracts';
+import { planLabel } from '../lib/insurancePlans';
+import { useResource } from '../lib/useResource';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormAlert } from '../components/FormAlert';
 import { SelectField } from '../components/SelectField';
@@ -38,7 +41,32 @@ const SERVER_FIELDS: readonly RegisterField[] = [
   'email',
   'phone',
   'password',
+  'insurancePlanId',
 ];
+
+/** Texto de la opción vacía: la afiliación es opcional y el registro debe poder seguir sin ella. */
+const NO_PLAN_OPTION = 'Sin afiliación / La agrego después';
+
+const PLAN_HINT = 'Opcional. Si no la conoces ahora, puedes agregarla más adelante.';
+const PLAN_LOADING_HINT = 'Cargando los planes de afiliación…';
+/** El catálogo no cargó: el campo se degrada, pero el registro sigue siendo posible sin plan. */
+const PLAN_UNAVAILABLE_HINT =
+  'No pudimos cargar los planes de afiliación. Puedes crear tu cuenta sin afiliación y agregarla después.';
+/** Solo se usa si el 422 llega sin un `detail` propio del servidor. */
+const PLAN_REJECTED_FALLBACK =
+  'Ese plan ya no está disponible. Elige otro o continúa sin afiliación.';
+
+/**
+ * Mensaje del 422 `INSURANCE_PLAN_UNAVAILABLE`. Manda el servidor: solo se recurre al texto
+ * propio si no envió ninguno y el cliente HTTP puso su mensaje genérico de validación.
+ */
+function planRejectedMessage(error: ApiError): string {
+  const byField = error.fieldErrors.insurancePlanId;
+  if (typeof byField === 'string' && byField !== '') return byField;
+  return error.message === DEFAULT_MESSAGE_BY_KIND.validation
+    ? PLAN_REJECTED_FALLBACK
+    : error.message;
+}
 
 /** RF-01 · Registro de usuario (rol USER). */
 export function RegistroPage() {
@@ -49,9 +77,26 @@ export function RegistroPage() {
   const [status, setStatus] = useState<Status>('idle');
   const [failure, setFailure] = useState<ApiError | null>(null);
 
+  // Catálogo PÚBLICO: se pide sin token porque quien se registra aún no tiene sesión.
+  const plansLoader = useCallback((signal: AbortSignal) => getInsurancePlans(signal), []);
+  const plans = useResource<InsurancePlan[]>(plansLoader, []);
+  const plansState = plans.state;
+  // Si el catálogo falla, el campo se degrada pero NUNCA bloquea el registro: es opcional.
+  const planOptions =
+    plansState.status === 'ready'
+      ? plansState.data.map((plan) => ({ value: String(plan.id), label: planLabel(plan) }))
+      : [];
+  const planHint =
+    plansState.status === 'loading'
+      ? PLAN_LOADING_HINT
+      : plansState.status === 'error'
+        ? PLAN_UNAVAILABLE_HINT
+        : PLAN_HINT;
+
   const isLoading = status === 'loading';
   const isSuccess = status === 'success';
   const isBlocked = isLoading || isSuccess;
+  const isPlanDisabled = isBlocked || plansState.status !== 'ready';
 
   function update(field: RegisterField, value: string) {
     setValues((previous) => ({ ...previous, [field]: value }));
@@ -80,6 +125,13 @@ export function RegistroPage() {
       return;
     }
 
+    // La afiliación es opcional: si no se eligió plan, la clave NO viaja (ni `null` ni '').
+    const chosenPlanId = Number(values.insurancePlanId);
+    const insurancePlan =
+      values.insurancePlanId !== '' && Number.isInteger(chosenPlanId)
+        ? { insurancePlanId: chosenPlanId }
+        : {};
+
     setStatus('loading');
     setFailure(null);
 
@@ -93,6 +145,7 @@ export function RegistroPage() {
         email: values.email.trim(),
         phone: values.phone.trim(),
         password: values.password,
+        ...insurancePlan,
       });
       setStatus('success');
       // HU-001 no incluye auto-login: se envía al login, que confirma el alta con un aviso.
@@ -106,6 +159,11 @@ export function RegistroPage() {
         for (const field of SERVER_FIELDS) {
           const message = error.fieldErrors[field];
           if (typeof message === 'string') next[field] = message;
+        }
+        // 422 INSURANCE_PLAN_UNAVAILABLE: el plan dejó de estar disponible entre la carga del
+        // catálogo y el envío. Se señala el campo y se conserva todo lo ya escrito.
+        if (error.code === ERROR_CODES.insurancePlanUnavailable) {
+          next.insurancePlanId = planRejectedMessage(error);
         }
         setFieldErrors(next);
       }
@@ -225,6 +283,17 @@ export function RegistroPage() {
             onChange={(event) => update('passwordConfirm', event.target.value)}
           />
         </div>
+        <SelectField
+          label="Plan de afiliación"
+          name="insurancePlanId"
+          options={planOptions}
+          placeholder={NO_PLAN_OPTION}
+          hint={planHint}
+          value={values.insurancePlanId}
+          error={fieldErrors.insurancePlanId}
+          disabled={isPlanDisabled}
+          onChange={(event) => update('insurancePlanId', event.target.value)}
+        />
         <SubmitButton loading={isLoading} disabled={isSuccess} loadingLabel="Creando cuenta…">
           Crear cuenta
         </SubmitButton>
@@ -238,6 +307,15 @@ export function RegistroPage() {
  * (restricciones únicas del backend, RF-01). No es lo mismo que un 400.
  */
 function RegistroFailure({ error }: { error: ApiError }) {
+  // El 422 del plan ya se explica con el mensaje del servidor junto al campo: aquí solo se
+  // señala dónde mirar, sin repetir la misma frase dos veces.
+  if (error.code === ERROR_CODES.insurancePlanUnavailable) {
+    return (
+      <FormAlert tone="error" title="No pudimos crear la cuenta con ese plan de afiliación.">
+        <p>Revisa el campo «Plan de afiliación»: elige otro o continúa sin afiliación.</p>
+      </FormAlert>
+    );
+  }
   if (error.kind === 'conflict') {
     return (
       <FormAlert tone="error" title={error.message}>

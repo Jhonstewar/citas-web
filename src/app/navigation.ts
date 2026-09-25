@@ -1,4 +1,5 @@
 import {
+  Building2,
   CalendarDays,
   CalendarPlus,
   CalendarRange,
@@ -7,6 +8,7 @@ import {
   Inbox,
   LayoutDashboard,
   Stethoscope,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '../api/contracts';
@@ -25,6 +27,7 @@ export const NAVIGATION: Readonly<Record<Role, readonly NavItem[]>> = {
     { to: '/paciente', label: 'Inicio', icon: House, end: true },
     { to: '/paciente/agendar', label: 'Agendar cita', icon: CalendarPlus },
     { to: '/paciente/citas', label: 'Mis citas', icon: CalendarDays },
+    { to: '/paciente/perfil', label: 'Mi perfil', icon: UserRound },
   ],
   PROFESSIONAL: [
     { to: '/profesional', label: 'Inicio', icon: House, end: true },
@@ -35,5 +38,6 @@ export const NAVIGATION: Readonly<Record<Role, readonly NavItem[]>> = {
     { to: '/admin/solicitudes', label: 'Solicitudes', icon: Inbox },
     { to: '/admin/profesionales', label: 'Profesionales', icon: Stethoscope },
     { to: '/admin/especialidades', label: 'Especialidades', icon: ClipboardList },
+    { to: '/admin/eps', label: 'EPS y planes', icon: Building2 },
   ],
 };

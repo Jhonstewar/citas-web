@@ -1,14 +1,17 @@
 import {
+  CalendarCheck,
   CalendarPlus,
   CalendarRange,
   ChevronLeft,
   ChevronRight,
+  Layers,
   Lock,
   MapPin,
   Pencil,
   Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { toApiError } from '../../api/ApiError';
 import type { Block, IsoDate } from '../../api/contracts';
 import { deleteBlock, getMyProfile, listBlocks } from '../../api/professionalApi';
@@ -17,6 +20,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { PageHeader } from '../../components/PageHeader';
 import { LoadingSection } from '../../components/Skeleton';
+import { Tabs } from '../../components/Tabs';
 import { useToast } from '../../components/toastContext';
 import {
   addDays,
@@ -29,16 +33,24 @@ import {
   todayIso,
 } from '../../lib/dates';
 import { useResource } from '../../lib/useResource';
+import { AppointmentsPanel } from './AppointmentsPanel';
 import { BlockFormModal } from './BlockFormModal';
 
 type Editing = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; block: Block };
 
+/** Pestañas de la agenda; `?vista=citas` abre directamente las citas (acceso desde el inicio). */
+type AgendaTab = 'bloques' | 'citas';
+
 /**
- * Mi agenda (HU-017..019): semana de lunes a domingo con los bloques propios y sus franjas
- * libres u ocupadas; crear, editar y eliminar bloques futuros sin reservas.
+ * Mi agenda con dos pestañas:
+ * - "Bloques" (HU-017..019): semana de lunes a domingo con los bloques propios y sus franjas
+ *   libres u ocupadas; crear, editar y eliminar bloques futuros sin reservas.
+ * - "Citas" (HU-020, HU-021): citas aprobadas por día o semana y sede, con su cierre.
  */
 export function AgendaPage() {
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: AgendaTab = searchParams.get('vista') === 'citas' ? 'citas' : 'bloques';
   const today = todayIso();
   const [weekStart, setWeekStart] = useState<IsoDate>(() => startOfWeek(todayIso()));
   const weekEnd = addDays(weekStart, 6);
@@ -87,29 +99,13 @@ export function AgendaPage() {
 
   const days = daysBetween(weekStart, weekEnd);
 
-  return (
-    <div className="page">
-      <PageHeader
-        eyebrow="Profesional"
-        title="Mi agenda"
-        description="Publica bloques de disponibilidad; se dividen en franjas de 30 minutos."
-        actions={
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={!canCreate}
-            onClick={() => setEditing({ mode: 'create' })}
-          >
-            <CalendarPlus size={18} aria-hidden="true" />
-            Nuevo bloque
-          </button>
-        }
-      />
+  function changeTab(next: string) {
+    setSearchParams(next === 'citas' ? { vista: 'citas' } : {}, { replace: true });
+  }
 
-      {profile.state.status === 'error' ? (
-        <ErrorState compact error={profile.state.error} onRetry={() => profile.reload()} />
-      ) : null}
-
+  // Contenido de la pestaña "Bloques": la vista de S3, sin cambios.
+  const blocksView = (
+    <div className="stack">
       <div className="week-nav">
         <div className="cluster">
           <button
@@ -210,6 +206,52 @@ export function AgendaPage() {
           </div>
         ) : null}
       </section>
+    </div>
+  );
+
+  return (
+    <div className="page">
+      <PageHeader
+        eyebrow="Profesional"
+        title="Mi agenda"
+        description={
+          tab === 'citas'
+            ? 'Tus citas aprobadas por día o por semana. Registra la atención cuando la cita haya empezado.'
+            : 'Publica bloques de disponibilidad; se dividen en franjas de 30 minutos.'
+        }
+        actions={
+          tab === 'bloques' ? (
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={!canCreate}
+              onClick={() => setEditing({ mode: 'create' })}
+            >
+              <CalendarPlus size={18} aria-hidden="true" />
+              Nuevo bloque
+            </button>
+          ) : undefined
+        }
+      />
+
+      {profile.state.status === 'error' ? (
+        <ErrorState compact error={profile.state.error} onRetry={() => profile.reload()} />
+      ) : null}
+
+      <Tabs
+        label="Secciones de la agenda"
+        value={tab}
+        onChange={changeTab}
+        tabs={[
+          { id: 'bloques', label: 'Bloques', icon: <Layers size={16} />, content: blocksView },
+          {
+            id: 'citas',
+            label: 'Citas',
+            icon: <CalendarCheck size={16} />,
+            content: <AppointmentsPanel sites={sites} />,
+          },
+        ]}
+      />
 
       <BlockFormModal
         open={editing.mode !== 'closed'}

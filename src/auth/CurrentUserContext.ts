@@ -9,6 +9,12 @@ export interface CurrentUserValue {
   primaryRole: Role;
   hasRole: (role: Role) => boolean;
   fullName: string;
+  /**
+   * Sustituye el usuario de la sesión por la respuesta del servidor tras editar el perfil o la
+   * afiliación (HU-008/009), para que el marco muestre ya el nombre nuevo. No inventa datos: solo
+   * recibe lo que devolvió la API.
+   */
+  replaceUser: (user: UserResponse) => void;
 }
 
 export const CurrentUserContext = createContext<CurrentUserValue | null>(null);

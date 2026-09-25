@@ -24,6 +24,13 @@ export interface DateTimeStepProps {
   onSelect: (offer: Offer) => void;
   /** Cambia para forzar la recarga (p. ej. tras un 409 SLOT_TAKEN). */
   reloadKey: number;
+  /**
+   * Profesional fijo (reprogramación, HU-027): viaja como `professionalId` a las dos búsquedas,
+   * así el backend solo devuelve la oferta de ese profesional.
+   */
+  fixedProfessionalId?: number | undefined;
+  /** Texto del vacío de 14 días; por defecto remite al paso anterior del asistente. */
+  emptyDescription?: string | undefined;
 }
 
 /**
@@ -43,6 +50,8 @@ export function DateTimeStep({
   selected,
   onSelect,
   reloadKey,
+  fixedProfessionalId,
+  emptyDescription = 'Prueba con los días siguientes o cambia la sede en el paso anterior.',
 }: DateTimeStepProps) {
   const today = todayIso();
   const windowEnd = addDays(windowStart, WINDOW_DAYS - 1);
@@ -50,8 +59,11 @@ export function DateTimeStep({
 
   const days = useResource(
     (signal) =>
-      availabilityDays({ specialtyId, from: windowStart, to: windowEnd, siteId: siteFilter }, signal),
-    [specialtyId, siteFilter, windowStart, windowEnd, reloadKey],
+      availabilityDays(
+        { specialtyId, from: windowStart, to: windowEnd, siteId: siteFilter, professionalId: fixedProfessionalId },
+        signal,
+      ),
+    [specialtyId, siteFilter, windowStart, windowEnd, reloadKey, fixedProfessionalId],
   );
 
   const counts = useMemo(() => {
@@ -72,8 +84,11 @@ export function DateTimeStep({
     (signal) =>
       effectiveDate === null
         ? Promise.resolve<Offer[]>([])
-        : searchAvailability({ specialtyId, date: effectiveDate, siteId: siteFilter }, signal),
-    [specialtyId, siteFilter, effectiveDate, reloadKey],
+        : searchAvailability(
+            { specialtyId, date: effectiveDate, siteId: siteFilter, professionalId: fixedProfessionalId },
+            signal,
+          ),
+    [specialtyId, siteFilter, effectiveDate, reloadKey, fixedProfessionalId],
   );
 
   const stripDays = daysBetween(windowStart, windowEnd);
@@ -110,7 +125,7 @@ export function DateTimeStep({
           compact
           icon={<CalendarX size={32} />}
           title="No hay horarios en estos 14 días"
-          description="Prueba con los días siguientes o cambia la sede en el paso anterior."
+          description={emptyDescription}
           action={
             <button
               type="button"
