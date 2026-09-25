@@ -1,6 +1,7 @@
-import { CalendarDays, CalendarPlus, IdCard, Info, Mail, Phone } from 'lucide-react';
+import { CalendarDays, CalendarPlus, CalendarX, IdCard, Info, Mail, Phone, UserRound } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { DOCUMENT_TYPES } from '../../api/contracts';
+import { DOCUMENT_TYPES, type Appointment } from '../../api/contracts';
 import { listMyAppointments } from '../../api/patientApi';
 import { useCurrentUser } from '../../auth/CurrentUserContext';
 import { AppointmentCard } from '../../components/AppointmentCard';
@@ -8,8 +9,10 @@ import { Card } from '../../components/Card';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingSection } from '../../components/Skeleton';
-import { isUpcoming } from '../../lib/dates';
+import { formatLongDate, isUpcoming } from '../../lib/dates';
 import { useResource } from '../../lib/useResource';
+import { CancelAppointmentDialog } from './CancelAppointmentDialog';
+import { PendingRescheduleMark } from './PendingRescheduleMark';
 
 const ACTIVE_STATUSES = new Set(['APPROVED', 'REQUESTED']);
 
@@ -17,6 +20,7 @@ const ACTIVE_STATUSES = new Set(['APPROVED', 'REQUESTED']);
 export function PatientHomePage() {
   const { user } = useCurrentUser();
   const appointments = useResource((signal) => listMyAppointments({}, signal), []);
+  const [toCancel, setToCancel] = useState<Appointment | null>(null);
 
   const documentType = DOCUMENT_TYPES.find((type) => type.code === user.documentType);
 
@@ -53,6 +57,10 @@ export function PatientHomePage() {
             <Link className="button button--ghost button--link" to="/paciente/citas">
               Ver mis citas
             </Link>
+            <Link className="button button--ghost button--link" to="/paciente/perfil">
+              <UserRound size={18} aria-hidden="true" />
+              Mi perfil y afiliación
+            </Link>
           </div>
         </div>
 
@@ -85,6 +93,19 @@ export function PatientHomePage() {
           ) : null}
         </dl>
       </section>
+
+      <CancelAppointmentDialog
+        appointment={toCancel}
+        onClose={() => setToCancel(null)}
+        onCancelled={() => {
+          setToCancel(null);
+          appointments.reload({ silent: true });
+        }}
+        onStale={() => {
+          setToCancel(null);
+          appointments.reload();
+        }}
+      />
 
       <p className="note">
         <Info size={18} aria-hidden="true" />
@@ -130,9 +151,32 @@ export function PatientHomePage() {
             />
           ) : (
             <ul className="appointment-list">
-              {upcoming.slice(0, 3).map((item) => (
-                <li key={item.id}>
-                  <AppointmentCard appointment={item} to={`/paciente/citas/${item.id}`} />
+              {upcoming.slice(0, 3).map((item, index) => (
+                <li key={item.id} className="stack stack--sm">
+                  <AppointmentCard
+                    appointment={item}
+                    to={`/paciente/citas/${item.id}`}
+                    footer={<PendingRescheduleMark appointment={item} />}
+                  />
+                  {/* HU-026: la próxima cita se puede cancelar desde aquí, solo si el servidor
+                      la declara `cancellable` (aclaración 8 del contrato S4). Si deja de serlo
+                      entre tanto, el backend responde 409 y la lista se recarga. */}
+                  {index === 0 && item.cancellable ? (
+                    <div className="cluster">
+                      <button
+                        type="button"
+                        className="button button--danger-outline button--sm"
+                        onClick={() => setToCancel(item)}
+                      >
+                        <CalendarX size={16} aria-hidden="true" />
+                        Cancelar cita
+                        <span className="visually-hidden">
+                          {' '}
+                          de {item.specialty.name}, {formatLongDate(item.date)}
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>

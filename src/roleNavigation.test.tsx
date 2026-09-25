@@ -9,6 +9,7 @@ import {
   problem,
   renderLoggedIn,
   sessionScript,
+  withoutBootRefresh,
 } from './test/fakeBackend';
 
 /**
@@ -39,7 +40,7 @@ describe('navegación por rol (HU-005 CA-08)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Hola, Laura' })).not.toBeNull();
     expect(window.location.pathname).toBe('/paciente');
-    expect(navLinks()).toEqual(['Inicio', 'Agendar cita', 'Mis citas']);
+    expect(navLinks()).toEqual(['Inicio', 'Agendar cita', 'Mis citas', 'Mi perfil']);
   });
 
   it('el ADMIN entra a /admin con su panel y su navegación', async () => {
@@ -49,7 +50,7 @@ describe('navegación por rol (HU-005 CA-08)', () => {
 
     expect(await screen.findByText('Solicitudes pendientes')).not.toBeNull();
     expect(window.location.pathname).toBe('/admin');
-    expect(navLinks()).toEqual(['Panel', 'Solicitudes', 'Profesionales', 'Especialidades']);
+    expect(navLinks()).toEqual(['Panel', 'Solicitudes', 'Profesionales', 'Especialidades', 'EPS y planes']);
     expect(screen.queryByRole('link', { name: 'Agendar cita' })).toBeNull();
   });
 
@@ -109,7 +110,8 @@ describe('401 frente a 403 (HU-005 CA-09)', () => {
     expect(screen.getByText(/No tiene permisos para realizar esta operación/)).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Cerrar sesión' })).not.toBeNull();
     expect(calls.some((call) => call.path === '/api/auth/logout')).toBe(false);
-    expect(calls.some((call) => call.path === '/api/auth/refresh')).toBe(false);
+    // Un 403 no renueva: la única renovación es el intento de restaurar sesión del arranque (D36).
+    expect(withoutBootRefresh(calls).some((call) => call.path === '/api/auth/refresh')).toBe(false);
   });
 
   it('un 401 cuya renovación es rechazada lleva al login', async () => {

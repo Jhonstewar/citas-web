@@ -6,9 +6,10 @@ import {
   type BlockRequest,
   type IsoDate,
   type Professional,
+  type ProfessionalAppointment,
 } from './contracts';
 
-/** Agenda del PROFESSIONAL (HU-017..019). El titular sale siempre del token. */
+/** Agenda y citas del PROFESSIONAL (HU-017..021). El titular sale siempre del token. */
 
 function withSignal(signal: AbortSignal | undefined) {
   return signal === undefined ? {} : { signal };
@@ -33,4 +34,35 @@ export function updateBlock(id: number, body: BlockRequest): Promise<Block> {
 
 export function deleteBlock(id: number): Promise<void> {
   return request(API_ROUTES.professional.block(id), { method: 'DELETE' });
+}
+
+/* ---------------------- S4 · Citas del profesional (HU-020, HU-021) ------- */
+
+/**
+ * HU-020 · Citas `APPROVED` propias entre `from` y `to` (ambos obligatorios, máximo 62 días;
+ * un solo día = `from` igual a `to`), ordenadas por fecha y hora. `siteId` es opcional.
+ */
+export function listAppointments(
+  from: IsoDate,
+  to: IsoDate,
+  siteId?: number,
+  signal?: AbortSignal,
+): Promise<ProfessionalAppointment[]> {
+  return request(
+    withQuery(API_ROUTES.professional.appointments, { from, to, siteId }),
+    withSignal(signal),
+  );
+}
+
+/**
+ * HU-021 · Cierra la cita como atendida. 404 si no es propia; 409 `INVALID_TRANSITION` si no
+ * está `APPROVED`, `APPOINTMENT_NOT_STARTED` antes de la hora de inicio (D19).
+ */
+export function completeAppointment(id: number): Promise<ProfessionalAppointment> {
+  return request(API_ROUTES.professional.completeAppointment(id), { method: 'POST' });
+}
+
+/** HU-021 · Cierra la cita como inasistencia. Mismos errores que `completeAppointment`. */
+export function markNoShow(id: number): Promise<ProfessionalAppointment> {
+  return request(API_ROUTES.professional.noShowAppointment(id), { method: 'POST' });
 }

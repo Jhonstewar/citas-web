@@ -26,6 +26,16 @@ export interface RequestOptions {
   body?: unknown;
   /** Si es `true` adjunta el access token disponible. Por defecto `true`. */
   authenticated?: boolean;
+  /**
+   * Si es `true`, la petición sale con `credentials: 'include'` para que el navegador envíe y
+   * acepte la cookie `HttpOnly` del refresh token (D36). Por defecto `false`.
+   *
+   * Solo la activan login, refresh y logout (`authApi`). No va en todas las peticiones: la
+   * cookie lleva `Path=/api/auth` y no viajaría al resto igualmente, y limitar las peticiones
+   * con credenciales a las tres que las necesitan mantiene el mínimo privilegio frente a CORS
+   * (el resto de la API sigue sin depender de `Access-Control-Allow-Credentials`).
+   */
+  withCredentials?: boolean;
   signal?: AbortSignal;
 }
 
@@ -176,7 +186,7 @@ async function execute<TResponse>(
   options: RequestOptions,
   allowRefresh: boolean,
 ): Promise<TResponse> {
-  const { method = 'GET', body, authenticated = true, signal } = options;
+  const { method = 'GET', body, authenticated = true, withCredentials = false, signal } = options;
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -195,6 +205,7 @@ async function execute<TResponse>(
 
   const init: RequestInit = { method, headers };
   if (body !== undefined) init.body = JSON.stringify(body);
+  if (withCredentials) init.credentials = 'include';
   if (signal !== undefined) init.signal = signal;
 
   let response: Response;

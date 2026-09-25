@@ -58,11 +58,16 @@ export const MAX_NAMES = 100;
 export const MAX_DOCUMENT_NUMBER = 20;
 export const MAX_EMAIL = 160;
 export const MAX_PHONE = 30;
-const MIN_PASSWORD = 8;
+/** Política D29: mínimo de caracteres de una contraseña nueva. */
+export const MIN_PASSWORD = 8;
+/** Política D29: tope de BCrypt, en bytes UTF-8. */
+export const MAX_PASSWORD_BYTES = 72;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const DOCUMENT_NUMBER_PATTERN = /^[A-Za-z0-9-]+$/;
 const PHONE_PATTERN = /^[+]?[0-9\s-]{7,}$/;
+/** Política D29: cualquier letra Unicode (`\p{L}`, requiere la bandera `u`). */
+const LETTER_PATTERN = /\p{L}/u;
 
 const DOCUMENT_TYPE_CODES: readonly string[] = DOCUMENT_TYPES.map((type) => type.code);
 
@@ -86,13 +91,29 @@ export function validateEmailValue(value: string): string | undefined {
   return undefined;
 }
 
-function validatePasswordValue(value: string): string | undefined {
+/** Bytes UTF-8 de un texto: el límite de BCrypt se mide en bytes, no en caracteres. */
+export function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+/**
+ * Política de contraseña D29 (INC-001), la misma que aplica el servidor al FIJAR una contraseña
+ * (registro, restablecimiento y alta de profesional): mínimo 8 caracteres, al menos una letra y
+ * un dígito, y máximo 72 bytes UTF-8. El login no la aplica: las cuentas anteriores siguen
+ * entrando. Es ayuda al usuario; si el servidor rechaza, manda su `fieldErrors`.
+ */
+export function validatePasswordPolicy(value: string): string | undefined {
   if (value === '') return 'Escribe una contraseña.';
   if (value.length < MIN_PASSWORD) {
     return `La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`;
   }
-  if (!/[A-Za-z]/.test(value) || !/[0-9]/.test(value)) {
+  // "Letra" es cualquier letra Unicode: la ñ y las vocales con tilde cuentan, igual que en el
+  // servidor (aclaración D29 de contrato-rest-identidad §S4).
+  if (!LETTER_PATTERN.test(value) || !/[0-9]/.test(value)) {
     return 'La contraseña debe combinar al menos una letra y un número.';
+  }
+  if (utf8ByteLength(value) > MAX_PASSWORD_BYTES) {
+    return `La contraseña no puede superar ${MAX_PASSWORD_BYTES} bytes (la ñ y las vocales con tilde ocupan 2; los emojis, 4).`;
   }
   return undefined;
 }
@@ -136,7 +157,7 @@ export function validateRegisterForm(
     errors.phone = `El teléfono no puede superar ${MAX_PHONE} caracteres.`;
   }
 
-  const password = validatePasswordValue(values.password);
+  const password = validatePasswordPolicy(values.password);
   if (password !== undefined) errors.password = password;
 
   if (values.passwordConfirm === '') {
@@ -188,6 +209,63 @@ export function validateRecoveryForm(
   const errors: FieldErrorMap<RecoveryField> = {};
   const email = validateEmailValue(values.email);
   if (email !== undefined) errors.email = email;
+  return errors;
+}
+
+export type ResetPasswordField = 'newPassword' | 'passwordConfirm'; // secret-scan:allow nombres de campo del formulario, no credenciales
+
+export interface ResetPasswordFormValues {
+  newPassword: string;
+  passwordConfirm: string;
+}
+
+export const EMPTY_RESET_PASSWORD_FORM: ResetPasswordFormValues = {
+  newPassword: '',
+  passwordConfirm: '',
+};
+
+/** RF-03 · HU-007 · Valida la contraseña nueva (política D29) y su confirmación. */
+export function validateResetPasswordForm(
+  values: ResetPasswordFormValues,
+): FieldErrorMap<ResetPasswordField> {
+  const errors: FieldErrorMap<ResetPasswordField> = {};
+  const newPassword = validatePasswordPolicy(values.newPassword);
+  if (newPassword !== undefined) errors.newPassword = newPassword;
+  if (values.passwordConfirm === '') {
+    errors.passwordConfirm = 'Repite la contraseña para confirmarla.';
+  } else if (values.passwordConfirm !== values.newPassword) {
+    errors.passwordConfirm = 'Las dos contraseñas no coinciden.';
+  }
+  return errors;
+}
+
+export type ProfileField = 'firstNames' | 'lastNames' | 'phone';
+
+export interface ProfileFormValues {
+  firstNames: string;
+  lastNames: string;
+  phone: string;
+}
+
+function validatePhone(value: string): string | undefined {
+  const phone = value.trim();
+  if (phone === '') return 'Escribe tu teléfono de contacto.';
+  if (!PHONE_PATTERN.test(phone)) {
+    return 'El teléfono debe tener al menos 7 dígitos y admite +, espacios y guiones.';
+  }
+  if (phone.length > MAX_PHONE) return `El teléfono no puede superar ${MAX_PHONE} caracteres.`;
+  return undefined;
+}
+
+/** HU-008 · Valida los campos editables del perfil (D25), con las mismas reglas del registro. */
+export function validateProfileForm(values: ProfileFormValues): FieldErrorMap<ProfileField> {
+  const errors: FieldErrorMap<ProfileField> = {};
+  const firstNames = validateName(values.firstNames, 'nombres');
+  if (firstNames !== undefined) errors.firstNames = firstNames;
+  const lastNames = validateName(values.lastNames, 'apellidos');
+  if (lastNames !== undefined) errors.lastNames = lastNames;
+  const phone = validatePhone(values.phone);
+  if (phone !== undefined) errors.phone = phone;
   return errors;
 }
 

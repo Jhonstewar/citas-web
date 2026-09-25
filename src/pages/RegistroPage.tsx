@@ -4,6 +4,7 @@ import { register } from '../api/authApi';
 import { ApiError, DEFAULT_MESSAGE_BY_KIND, toApiError } from '../api/ApiError';
 import { getInsurancePlans } from '../api/catalogApi';
 import { DOCUMENT_TYPES, ERROR_CODES, type InsurancePlan } from '../api/contracts';
+import { planLabel } from '../lib/insurancePlans';
 import { useResource } from '../lib/useResource';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormAlert } from '../components/FormAlert';
@@ -54,14 +55,6 @@ const PLAN_UNAVAILABLE_HINT =
 /** Solo se usa si el 422 llega sin un `detail` propio del servidor. */
 const PLAN_REJECTED_FALLBACK =
   'Ese plan ya no está disponible. Elige otro o continúa sin afiliación.';
-
-/**
- * Etiqueta con la EPS, el plan y el régimen: dos planes distintos pueden llamarse igual en EPS
- * diferentes, así que el nombre del plan por sí solo no los distingue.
- */
-function planLabel(plan: InsurancePlan): string {
-  return `${plan.eps.name} · ${plan.name} · ${plan.regime.name}`;
-}
 
 /**
  * Mensaje del 422 `INSURANCE_PLAN_UNAVAILABLE`. Manda el servidor: solo se recurre al texto

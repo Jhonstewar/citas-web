@@ -14,6 +14,7 @@ import { useSession } from './useSession';
  */
 export function CurrentUserProvider({ children }: { children: ReactNode }) {
   const me = useResource((signal) => getCurrentUser(signal), []);
+  const { update } = me;
   const { signOut } = useSession();
   const navigate = useNavigate();
 
@@ -29,8 +30,9 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
       primaryRole: role,
       hasRole: (candidate) => roles.includes(candidate),
       fullName: `${user.firstNames} ${user.lastNames}`.trim(),
+      replaceUser: (next) => update(() => next),
     };
-  }, [me.state]);
+  }, [me.state, update]);
 
   function handleLogout() {
     signOut();

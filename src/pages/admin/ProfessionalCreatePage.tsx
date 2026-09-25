@@ -11,6 +11,7 @@ import { FormAlert } from '../../components/FormAlert';
 import { PageHeader } from '../../components/PageHeader';
 import { SelectField } from '../../components/SelectField';
 import { LoadingSection } from '../../components/Skeleton';
+import { SubmitButton } from '../../components/SubmitButton';
 import { TextField } from '../../components/TextField';
 import { useToast } from '../../components/toastContext';
 import { useResource } from '../../lib/useResource';
@@ -264,10 +265,9 @@ export function ProfessionalCreatePage() {
           >
             Cancelar
           </button>
-          <button type="submit" className="button button--primary" disabled={saving} aria-busy={saving}>
-            {saving ? <span className="button__spinner" aria-hidden="true" /> : null}
+          <SubmitButton loading={saving} keepLabel>
             Crear profesional
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </div>

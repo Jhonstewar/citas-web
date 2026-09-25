@@ -1,14 +1,38 @@
-import { LogOut, Menu, ShieldCheck, X } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { LogOut, Menu, ShieldCheck } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { DOCUMENT_TYPES, type Role } from '../api/contracts';
 import { useCurrentUser } from '../auth/CurrentUserContext';
 import { ROLE_LABEL } from '../auth/roles';
 import { useSession } from '../auth/useSession';
 import { BrandMark } from '../components/BrandLogo';
 import { NAVIGATION } from './navigation';
+import { useMediaQuery } from './useMediaQuery';
 
 const ROLE_ORDER: readonly Role[] = ['ADMIN', 'PROFESSIONAL', 'USER'];
+
+/** Mismo punto de corte que `app.css`: desde aquí la barra lateral es fija (no panel desplegable). */
+export const DESKTOP_QUERY = '(min-width: 64rem)';
+
+/** Preferencia de interfaz (no es dato de sesión): barra lateral oculta en escritorio. */
+export const SIDEBAR_COLLAPSED_KEY = 'citas-web.sidebar-collapsed';
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    // Almacenamiento no disponible (modo privado, política del navegador): menú visible.
+    return false;
+  }
+}
+
+function writeCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // Sin almacenamiento la preferencia vale solo para esta visita.
+  }
+}
 
 function initials(name: string): string {
   return name
@@ -22,22 +46,67 @@ function initials(name: string): string {
 /**
  * Marco de la aplicación autenticada: barra lateral con la navegación del rol (en móvil, panel
  * desplegable), cabecera con el usuario y "Cerrar sesión", y el contenido de la ruta.
+ *
+ * La hamburguesa alterna el menú: en escritorio oculta/muestra la barra fija (y recuerda la
+ * preferencia); en pantallas estrechas abre/cierra el panel, que también se cierra con Esc, con
+ * clic en el fondo y al navegar a otra ruta.
  */
 export function AppShell() {
   const { user, fullName, roles, primaryRole } = useCurrentUser();
   const { signOut } = useSession();
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
   const navId = useId();
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  // Escritorio: barra lateral fija que se puede ocultar (preferencia persistida).
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  // Pantallas estrechas: panel desplegable, cerrado al entrar.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  const [lastPath, setLastPath] = useState(pathname);
+
+  // Navegar a otra ruta (enlace del menú, atrás/adelante) cierra el panel.
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    if (drawerOpen) setDrawerOpen(false);
+  }
+  // Al pasar a escritorio el panel desplegable deja de existir.
+  if (isDesktop && drawerOpen) setDrawerOpen(false);
+
+  const drawerVisible = !isDesktop && drawerOpen;
+  const menuExpanded = isDesktop ? !collapsed : drawerOpen;
+
+  // Foco: al abrir el panel va al primer enlace; al cerrarlo vuelve a la hamburguesa.
+  const wasDrawerOpen = useRef(false);
+  useEffect(() => {
+    if (wasDrawerOpen.current === drawerOpen) return;
+    wasDrawerOpen.current = drawerOpen;
+    if (drawerOpen) {
+      sidebarRef.current?.querySelector<HTMLElement>('.sidebar__link')?.focus();
+    } else {
+      menuButtonRef.current?.focus();
+    }
+  }, [drawerOpen]);
 
   useEffect(() => {
-    if (!menuOpen) return undefined;
+    if (!drawerVisible) return undefined;
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setMenuOpen(false);
+      if (event.key === 'Escape') setDrawerOpen(false);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [menuOpen]);
+  }, [drawerVisible]);
+
+  function toggleMenu() {
+    if (isDesktop) {
+      const next = !collapsed;
+      setCollapsed(next);
+      writeCollapsed(next);
+    } else {
+      setDrawerOpen((open) => !open);
+    }
+  }
 
   function handleLogout() {
     signOut();
@@ -48,13 +117,17 @@ export function AppShell() {
   const showGroups = visibleRoles.length > 1;
   const documentType = DOCUMENT_TYPES.find((type) => type.code === user.documentType);
 
+  let appClass = 'app';
+  if (drawerVisible) appClass += ' app--menu-open';
+  if (isDesktop && collapsed) appClass += ' app--sidebar-collapsed';
+
   return (
-    <div className={menuOpen ? 'app app--menu-open' : 'app'}>
+    <div className={appClass}>
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
 
-      <aside className="sidebar" id={navId} aria-label="Navegación principal">
+      <aside className="sidebar" id={navId} ref={sidebarRef} aria-label="Navegación principal">
         <div className="sidebar__brand">
           <span className="sidebar__logo" aria-hidden="true">
             <BrandMark size={22} />
@@ -63,14 +136,6 @@ export function AppShell() {
             FCV Citas
             <span className="sidebar__brand-sub">HIC · ICV</span>
           </span>
-          <button
-            type="button"
-            className="icon-button sidebar__close"
-            onClick={() => setMenuOpen(false)}
-            aria-label="Cerrar menú"
-          >
-            <X size={20} aria-hidden="true" />
-          </button>
         </div>
 
         {/*
@@ -101,7 +166,6 @@ export function AppShell() {
                       <NavLink
                         to={item.to}
                         end={item.end === true}
-                        onClick={() => setMenuOpen(false)}
                         className={({ isActive }) =>
                           isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
                         }
@@ -124,18 +188,19 @@ export function AppShell() {
         className="app__scrim"
         aria-hidden="true"
         tabIndex={-1}
-        onClick={() => setMenuOpen(false)}
+        onClick={() => setDrawerOpen(false)}
       />
 
       <div className="app__main">
         <header className="topbar">
           <button
+            ref={menuButtonRef}
             type="button"
             className="icon-button topbar__menu"
-            aria-expanded={menuOpen}
+            aria-expanded={menuExpanded}
             aria-controls={navId}
-            aria-label="Abrir menú"
-            onClick={() => setMenuOpen(true)}
+            aria-label={menuExpanded ? 'Ocultar menú' : 'Mostrar menú'}
+            onClick={toggleMenu}
           >
             <Menu size={22} aria-hidden="true" />
           </button>

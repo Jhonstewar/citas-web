@@ -11,6 +11,7 @@ import {
 import { SegmentedControl } from '../../components/ChoiceControls';
 import { FormAlert } from '../../components/FormAlert';
 import { Modal } from '../../components/Modal';
+import { SubmitButton } from '../../components/SubmitButton';
 import { TextField } from '../../components/TextField';
 
 type Field = 'code' | 'name' | 'appointmentType' | 'durationMinutes';
@@ -168,10 +169,9 @@ function SpecialtyForm({ specialty, onClose, onSaved }: SpecialtyFormModalProps)
           <button type="button" className="button button--ghost" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
-          <button type="submit" className="button button--primary" disabled={saving} aria-busy={saving}>
-            {saving ? <span className="button__spinner" aria-hidden="true" /> : null}
+          <SubmitButton loading={saving} keepLabel>
             {isNew ? 'Crear especialidad' : 'Guardar cambios'}
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </Modal>

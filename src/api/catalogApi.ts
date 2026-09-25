@@ -5,6 +5,7 @@ import {
   type AppointmentTypeItem,
   type CatalogItem,
   type InsurancePlan,
+  type RescheduleStatusItem,
   type Site,
   type Specialty,
 } from './contracts';
@@ -37,8 +38,18 @@ export function getAppointmentStatuses(signal?: AbortSignal): Promise<Appointmen
   return get(API_ROUTES.catalogs.appointmentStatuses, signal);
 }
 
+/** Estados de una solicitud de reprogramación (incluye `PENDING`). */
+export function getRescheduleStatuses(signal?: AbortSignal): Promise<RescheduleStatusItem[]> {
+  return get(API_ROUTES.catalogs.rescheduleStatuses, signal);
+}
+
 export function getDocumentTypes(signal?: AbortSignal): Promise<CatalogItem[]> {
   return get(API_ROUTES.catalogs.documentTypes, signal);
+}
+
+/** Regímenes de afiliación (catálogo fijo, RF-05): pueblan el selector de los planes de EPS. */
+export function getRegimes(signal?: AbortSignal): Promise<CatalogItem[]> {
+  return get(API_ROUTES.catalogs.regimes, signal);
 }
 
 /**

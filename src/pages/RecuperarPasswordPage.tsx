@@ -17,6 +17,8 @@ import {
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
+const NEUTRAL_MESSAGE = 'Si el correo corresponde a una cuenta, enviamos las instrucciones.';
+
 /**
  * RF-03 · Solicitud de recuperación de contraseña.
  *
@@ -28,8 +30,13 @@ export function RecuperarPasswordPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrorMap<RecoveryField>>({});
   const [status, setStatus] = useState<Status>('idle');
   const [failure, setFailure] = useState<ApiError | null>(null);
-  /** Token de desarrollo si el backend decide exponerlo (permitido por RF-03). */
+  /**
+   * Token de laboratorio: solo llega con `PASSWORD_RESET_EXPOSE_TOKEN=true` (D27) y para un correo
+   * existente. Se muestra marcado como dato de laboratorio y nunca se guarda ni se registra.
+   */
   const [devToken, setDevToken] = useState<string | null>(null);
+  /** `message` del 202; si no llegara, se usa el texto neutro propio. */
+  const [message, setMessage] = useState<string | null>(null);
 
   const isLoading = status === 'loading';
   const isSuccess = status === 'success';
@@ -51,9 +58,11 @@ export function RecuperarPasswordPage() {
     setDevToken(null);
 
     try {
+      // 202 `{ message, devToken? }`: el mensaje es el mismo exista o no el correo (HU-006 CA-02).
       const response = await requestPasswordRecovery({ email: values.email.trim() });
       setStatus('success');
-      setDevToken(response.devToken ?? null);
+      setMessage(typeof response?.message === 'string' && response.message !== '' ? response.message : null);
+      setDevToken(typeof response?.devToken === 'string' && response.devToken !== '' ? response.devToken : null);
     } catch (cause) {
       const error = toApiError(cause);
       setStatus('error');
@@ -76,15 +85,22 @@ export function RecuperarPasswordPage() {
     >
       {failure !== null ? <FormAlert tone="error" title={failure.message} /> : null}
       {isSuccess ? (
-        <FormAlert
-          tone="success"
-          title="Si el correo corresponde a una cuenta, enviamos las instrucciones."
-        >
+        <FormAlert tone="success" title={message ?? NEUTRAL_MESSAGE}>
           <p>Revisa tu bandeja de entrada. El enlace caduca y solo puede usarse una vez.</p>
           {devToken !== null ? (
-            <p className="alert__dev-token">
-              Token de desarrollo del laboratorio: <code>{devToken}</code>
-            </p>
+            <div className="alert__dev-token stack stack--sm">
+              <p>
+                <span className="badge badge--warning">Dato de laboratorio</span>{' '}
+                Sin correo real, el servidor de laboratorio devuelve el token. Nunca ocurre en
+                producción.
+              </p>
+              <p>
+                Token: <code>{devToken}</code>
+              </p>
+              <Link className="link" to={`/restablecer-password?token=${encodeURIComponent(devToken)}`}>
+                Restablecer la contraseña con este token
+              </Link>
+            </div>
           ) : null}
         </FormAlert>
       ) : null}

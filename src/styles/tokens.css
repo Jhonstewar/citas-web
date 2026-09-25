@@ -24,7 +24,7 @@
   --color-text: #101d27; /* on-surface */
   --color-text-secondary: #41474f; /* on-surface-variant */
   --color-border: #c1c7d0; /* outline-variant */
-  --color-border-strong: #717880; /* outline — 4.1:1 sobre blanco, cumple WCAG 1.4.11 */
+  --color-border-strong: #717880; /* outline — 4,47:1 sobre blanco (medido), cumple WCAG 1.4.11 (≥ 3:1) */
 
   --color-primary: #00446a; /* primary */
   --color-primary-hover: #003657;

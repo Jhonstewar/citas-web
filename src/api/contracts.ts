@@ -5,8 +5,10 @@
  * S3 (2026-09-18): catálogos, profesionales, agenda y citas según `contrato-rest-citas.md`
  * (Vigente). Fechas y horas LocalDateTime sin zona, en hora de America/Bogota.
  * Ninguna ruta ni tipo de payload REST vive fuera de este archivo.
+ * S4 (2026-09-25): ciclo de vida de la cita, agenda del profesional, EPS, perfil, afiliación y
+ * recuperación de contraseña, según las secciones "S4" de `contrato-rest-citas.md` y
+ * `contrato-rest-identidad.md` (acordadas antes de implementar el backend).
  * Errores: ProblemDetail (RFC 9457) con `detail`; los 400 añaden `fieldErrors`.
- * Pendiente: recuperación de contraseña (RF-03) aún no existe en el backend.
  */
 
 /**
@@ -48,15 +50,26 @@ export const API_ROUTES = {
     register: '/api/auth/register',
     /** RF-02 · Login por email + contraseña. */
     login: '/api/auth/login',
-    /** RF-02 · Renovación con rotación del refresh token. */
+    /**
+     * RF-02 · Renovación con rotación del refresh token. Sin cuerpo (D36): el refresh token
+     * viaja en la cookie `HttpOnly` `fcv_refresh`, que el servidor rota en cada 200 y borra en
+     * el 401.
+     */
     refresh: '/api/auth/refresh',
-    /** RF-02 · Logout: revoca la familia del refresh token. Responde 204. */
+    /**
+     * RF-02 · Logout: revoca la familia del refresh token de la cookie `fcv_refresh` y la borra.
+     * Sin cuerpo (D36); 204 siempre (idempotente).
+     */
     logout: '/api/auth/logout',
-    /** RF-03 · Solicitud de recuperación por email. ⚠️ Ruta supuesta. */
+    /** RF-03 · HU-006 · Solicitud de recuperación por email. Pública; responde 202. */
     passwordRecovery: '/api/auth/password-recovery',
+    /** RF-03 · HU-007 · Restablece la contraseña con el token de un solo uso. Pública; 204. */
+    passwordReset: '/api/auth/password-reset',
   },
-  /** Usuario autenticado y sus roles. */
+  /** Usuario autenticado y sus roles (GET) · HU-008 edición del perfil propio (PUT). */
   me: '/api/me',
+  /** HU-009 · Afiliación vigente del USER: PUT la fija o cambia, DELETE la cierra. */
+  meAffiliation: '/api/me/affiliation',
 
   /** HU-010 · Catálogos fijos, cualquier rol autenticado. Solo lectura. */
   catalogs: {
@@ -65,6 +78,8 @@ export const API_ROUTES = {
     specialties: '/api/catalogs/specialties',
     appointmentTypes: '/api/catalogs/appointment-types',
     appointmentStatuses: '/api/catalogs/appointment-statuses',
+    /** Estados de una solicitud de reprogramación (incluye `PENDING`, HU-010 CA-04). */
+    rescheduleStatuses: '/api/catalogs/reschedule-statuses',
     documentTypes: '/api/catalogs/document-types',
     roles: '/api/catalogs/roles',
     regimes: '/api/catalogs/regimes',
@@ -76,7 +91,7 @@ export const API_ROUTES = {
     insurancePlans: '/api/catalogs/insurance-plans',
   },
 
-  /** Rutas del ADMIN (HU-011, HU-013..016, HU-029, HU-030). */
+  /** Rutas del ADMIN (HU-011, HU-012, HU-013..016, HU-029..031). */
   admin: {
     specialties: '/api/admin/specialties',
     specialty: (id: number) => `/api/admin/specialties/${id}`,
@@ -91,16 +106,31 @@ export const API_ROUTES = {
     approve: (id: number) => `/api/admin/appointments/${id}/approve`,
     reject: (id: number) => `/api/admin/appointments/${id}/reject`,
     summary: '/api/admin/summary',
+    /** HU-031 · Decisión sobre una solicitud de reprogramación (el id es el de la solicitud). */
+    approveReschedule: (id: number) => `/api/admin/reschedules/${id}/approve`,
+    rejectReschedule: (id: number) => `/api/admin/reschedules/${id}/reject`,
+    /** HU-012 · EPS y sus planes. */
+    epsList: '/api/admin/eps',
+    eps: (id: number) => `/api/admin/eps/${id}`,
+    epsStatus: (id: number) => `/api/admin/eps/${id}/status`,
+    epsPlans: (epsId: number) => `/api/admin/eps/${epsId}/plans`,
+    epsPlan: (id: number) => `/api/admin/eps-plans/${id}`,
+    epsPlanStatus: (id: number) => `/api/admin/eps-plans/${id}/status`,
   },
 
-  /** Rutas del PROFESSIONAL (HU-017..019). El titular sale siempre del token. */
+  /** Rutas del PROFESSIONAL (HU-017..021). El titular sale siempre del token. */
   professional: {
     me: '/api/professional/me',
     blocks: '/api/professional/blocks',
     block: (id: number) => `/api/professional/blocks/${id}`,
+    /** HU-020 · Citas `APPROVED` propias en un rango (`from`, `to`; `siteId` opcional). */
+    appointments: '/api/professional/appointments',
+    /** HU-021 · Cierre de la atención. */
+    completeAppointment: (id: number) => `/api/professional/appointments/${id}/complete`,
+    noShowAppointment: (id: number) => `/api/professional/appointments/${id}/no-show`,
   },
 
-  /** Rutas del USER (HU-022..025). */
+  /** Rutas del USER (HU-022..028). */
   patient: {
     availability: '/api/patient/availability',
     availabilityDays: '/api/patient/availability/days',
@@ -108,6 +138,10 @@ export const API_ROUTES = {
     specializedAppointment: '/api/patient/appointments/specialized',
     appointments: '/api/patient/appointments',
     appointment: (id: number) => `/api/patient/appointments/${id}`,
+    /** HU-026 · Cancelación por el paciente. */
+    cancelAppointment: (id: number) => `/api/patient/appointments/${id}/cancel`,
+    /** HU-027 · Solicitud de reprogramación. */
+    rescheduleAppointment: (id: number) => `/api/patient/appointments/${id}/reschedule`,
   },
 } as const;
 
@@ -156,24 +190,33 @@ export interface LoginRequest {
   password: string;
 }
 
-/** RF-03. */
+/** RF-03 · HU-006. */
 export interface PasswordRecoveryRequest {
   email: string;
 }
 
-/** RF-02 · refresh y logout. */
-export interface RefreshRequest {
-  refreshToken: string;
+/**
+ * RF-03 · HU-007. El token llega al frontend por `/restablecer-password?token=…`.
+ * La contraseña nueva sigue la política D29 (`validatePasswordPolicy` en `validation/`).
+ */
+export interface PasswordResetRequest {
+  token: string;
+  newPassword: string;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Payloads de respuesta                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** Respuesta de login y refresh. Los roles viajan en el claim `roles` del JWT y en /api/me. */
+/**
+ * Respuesta de login y refresh. Los roles viajan en el claim `roles` del JWT y en /api/me.
+ *
+ * Desde D36 NO trae `refreshToken`: el servidor lo entrega en la cookie `HttpOnly`
+ * `fcv_refresh` (`Path=/api/auth`), que JavaScript no puede leer. `refresh` y `logout` no llevan
+ * cuerpo: el navegador adjunta la cookie cuando la petición va con `credentials: 'include'`.
+ */
 export interface AuthTokensResponse {
   accessToken: string;
-  refreshToken: string;
   tokenType: 'Bearer';
   /** Segundos de vida del access token. */
   expiresIn: number;
@@ -190,16 +233,43 @@ export interface UserResponse {
   /** La columna admite NULL y el backend omite los nulos al serializar. */
   phone?: string;
   roles: Role[];
+  /**
+   * S4 · HU-009 · Afiliación vigente. Aditivo: `null` (u omitido, por `non_null`) sin afiliación y
+   * siempre en ADMIN y PROFESSIONAL.
+   */
+  affiliation?: Affiliation | null;
 }
 
 /**
- * Respuesta de recuperación de contraseña (RF-03).
- * En desarrollo el PRD permite exponer el token de forma controlada; por eso
- * `devToken` es opcional y solo se usa para depurar el laboratorio.
+ * Respuesta 202 de `POST /api/auth/password-recovery` (HU-006). `message` es idéntico exista o
+ * no el email. `devToken` solo llega con la exposición de laboratorio activa
+ * (`PASSWORD_RESET_EXPOSE_TOKEN=true`, D27) y solo para un email existente. Nunca se registra.
  */
 export interface PasswordRecoveryResponse {
-  message?: string;
+  message: string;
   devToken?: string;
+}
+
+/**
+ * HU-008 · Campos editables del perfil propio (D25). Enviar `email`, `documentType`,
+ * `documentNumber`, `password` o `roles` da 400 `FIELD_NOT_EDITABLE` con `field`.
+ */
+export interface UpdateProfileRequest {
+  firstNames: string;
+  lastNames: string;
+  phone: string;
+}
+
+/** HU-009 · Fija o cambia el plan vigente (D26). Mismo plan = sin cambios. */
+export interface AffiliationRequest {
+  insurancePlanId: number;
+}
+
+/** HU-009 · Afiliación vigente; `plan` tiene el mismo cuerpo que el catálogo público. */
+export interface Affiliation {
+  id: number;
+  plan: InsurancePlan;
+  startedOn: IsoDate;
 }
 
 /* ========================================================================== */
@@ -247,10 +317,30 @@ export const ERROR_CODES = {
   slotNotAvailable: 'SLOT_NOT_AVAILABLE',
   /** RF-01 · El plan de afiliación elegido en el registro ya no está disponible (422). */
   insurancePlanUnavailable: 'INSURANCE_PLAN_UNAVAILABLE',
+  /** 409 · Otra transacción cambió los datos a la vez; se puede reintentar. */
+  concurrentChange: 'CONCURRENT_CHANGE',
+  /** S4 · 409 · Cerrar como COMPLETED/NO_SHOW antes de la hora de inicio (D19). */
+  appointmentNotStarted: 'APPOINTMENT_NOT_STARTED',
+  /** S4 · 409 · Ya hay una reprogramación PENDING sobre la cita (D20). */
+  reschedulePending: 'RESCHEDULE_PENDING',
+  /** S4 · 409 · Borrar una EPS con planes (D28). */
+  epsReferenced: 'EPS_REFERENCED',
+  /** S4 · 409 · Borrar un plan con afiliaciones (D28). */
+  planReferenced: 'PLAN_REFERENCED',
+  /** S4 · 422 · La franja propuesta es la misma que la actual. */
+  sameSlot: 'SAME_SLOT',
+  /** S4 · 400 · `PUT /api/me` con un campo no editable; la extensión `field` lo nombra (D25). */
+  fieldNotEditable: 'FIELD_NOT_EDITABLE',
+  /** S4 · 400 · Token de restablecimiento inexistente, caducado, usado o revocado (una sola respuesta). */
+  resetTokenInvalid: 'RESET_TOKEN_INVALID', // secret-scan:allow código de error del contrato, no una credencial
 } as const;
 
-/** Longitud máxima del motivo de rechazo (HU-030). */
+/** Longitud máxima del motivo de rechazo (HU-030, y rechazo de reprogramación HU-031). */
 export const REJECTION_REASON_MAX = 500;
+/** Longitud máxima del motivo opcional de cancelación (HU-026). */
+export const CANCELLATION_REASON_MAX = 500;
+/** Longitud máxima del motivo opcional al pedir una reprogramación (HU-027, aclaración 3 del contrato S4). */
+export const RESCHEDULE_REASON_MAX = 500;
 /** Rango máximo en días de las consultas por rango (bloques y días con oferta). */
 export const MAX_RANGE_DAYS = 62;
 /** Duraciones admitidas por especialidad (RF-09). */
@@ -370,6 +460,14 @@ export interface Appointment {
   /** Puede venir `null` o ausente (el backend omite nulos). */
   rejectionReason?: string | null;
   createdAt: string;
+  /** S4 · Hay una solicitud de reprogramación `PENDING` sobre la cita. */
+  pendingReschedule: boolean;
+  /**
+   * S4 · Futura y no terminal (D16, D17). Viene también en el listado (aclaración 8 del contrato
+   * S4) para ofrecer "Cancelar" solo cuando el servidor lo admite. Lo decide el backend; la UI
+   * solo lo refleja.
+   */
+  cancellable: boolean;
 }
 
 export interface HistoryEntry {
@@ -383,10 +481,141 @@ export interface HistoryEntry {
 
 export interface AppointmentDetail extends Appointment {
   history: HistoryEntry[];
+  /**
+   * S4 · HU-028 · La solicitud de reprogramación más reciente, en cualquier estado. `null` u
+   * omitida (`non_null`) si nunca hubo una.
+   */
+  lastReschedule?: RescheduleRequest | null;
+  /** S4 · `APPROVED`, futura y sin reprogramación `PENDING` (D20). */
+  reschedulable: boolean;
 }
 
+/**
+ * Cita vista por el ADMIN. `lastReschedule` llega por herencia del detalle; el contrato también
+ * lo declara explícitamente aquí.
+ */
 export interface AdminAppointment extends AppointmentDetail {
   patient: PatientRef;
+}
+
+/* ------------------------------ S4 · Reprogramación ----------------------- */
+
+export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+/** Franja concreta de una cita: fecha, horas y sede (la sede puede cambiar, D21). */
+export interface TimeSlot {
+  date: IsoDate;
+  startTime: HourMinute;
+  endTime: HourMinute;
+  site: SiteRef;
+}
+
+export interface RescheduleRequest {
+  id: number;
+  appointmentId: number;
+  status: RescheduleStatus;
+  statusName: string;
+  /** Franja de la cita en el momento de pedirla. */
+  previous: TimeSlot;
+  /** Franja pedida. */
+  proposed: TimeSlot;
+  requestReason?: string | null;
+  decisionReason?: string | null;
+  createdAt: string;
+  decidedAt?: string | null;
+}
+
+/**
+ * HU-027 · Profesional y especialidad se conservan: el cuerpo no los lleva. `reason` es opcional
+ * y la clave se omite si el paciente no escribe nada.
+ */
+export interface RescheduleAppointmentRequest {
+  siteId: number;
+  date: IsoDate;
+  startTime: HourMinute;
+  reason?: string;
+}
+
+/** HU-026 · Motivo opcional (≤ 500). La clave se omite si el paciente no escribe nada. */
+export interface CancelAppointmentRequest {
+  reason?: string;
+}
+
+/* ------------------------------ S4 · Profesional -------------------------- */
+
+/** Datos mínimos del paciente para el profesional (RF-16): sin email ni teléfono. */
+export interface ProfessionalPatientRef {
+  fullName: string;
+  documentType: string;
+  documentNumber: string;
+}
+
+/** HU-020 · Cita de la agenda del profesional (el listado solo trae `APPROVED`). */
+export interface ProfessionalAppointment {
+  id: number;
+  status: AppointmentStatus;
+  statusName: string;
+  date: IsoDate;
+  startTime: HourMinute;
+  endTime: HourMinute;
+  durationMinutes: DurationMinutes;
+  site: SiteRef;
+  specialty: SpecialtyRef;
+  patient: ProfessionalPatientRef;
+  /** `APPROVED` y ya empezó (D19): habilita COMPLETED / NO_SHOW. */
+  closable: boolean;
+}
+
+/** HU-020 · `from`/`to` obligatorios (máx. 62 días; un día = `from` igual a `to`). */
+export interface ProfessionalAppointmentsQuery {
+  from: IsoDate;
+  to: IsoDate;
+  siteId?: number | undefined;
+}
+
+/* --------------------------------- S4 · EPS ------------------------------- */
+
+/** HU-012 · EPS administrable (activas e inactivas). */
+export interface Eps {
+  id: number;
+  code: string;
+  name: string;
+  active: boolean;
+  planCount: number;
+}
+
+/**
+ * HU-012 · Plan de una EPS. El régimen es `{ id, code, name }`, igual que en `InsurancePlan`
+ * (aclaración 4 del contrato S4); el alta y la edición siguen enviando `regimeCode`.
+ */
+export interface EpsPlan {
+  id: number;
+  epsId: number;
+  code: string;
+  name: string;
+  active: boolean;
+  regime: InsuranceRef;
+}
+
+export interface CreateEpsRequest {
+  code: string;
+  name: string;
+}
+
+/** El contrato solo admite editar el nombre. */
+export interface UpdateEpsRequest {
+  name: string;
+}
+
+export interface CreateEpsPlanRequest {
+  code: string;
+  name: string;
+  regimeCode: string;
+}
+
+export interface UpdateEpsPlanRequest {
+  name: string;
+  regimeCode: string;
 }
 
 /* -------------------------------- Catálogos ------------------------------- */
@@ -420,6 +649,12 @@ export interface AppointmentTypeItem {
 
 export interface AppointmentStatusItem {
   code: AppointmentStatus;
+  name: string;
+  terminal: boolean;
+}
+
+export interface RescheduleStatusItem {
+  code: RescheduleStatus;
   name: string;
   terminal: boolean;
 }
@@ -484,18 +719,33 @@ export interface ProfessionalSitesRequest {
   siteIds: number[];
 }
 
+export type InboxEntryType = 'APPOINTMENT_REQUEST' | 'RESCHEDULE_REQUEST';
+
+/**
+ * Filtros de la bandeja. En una reprogramación, `date` y `siteId` se aplican a la franja
+ * PROPUESTA (D24).
+ */
 export interface InboxFilters {
   siteId?: number | undefined;
   professionalId?: number | undefined;
   specialtyId?: number | undefined;
   date?: IsoDate | undefined;
+  type?: InboxEntryType | undefined;
 }
 
-/** En S4 llegará también `RESCHEDULE_REQUEST`. */
-export interface InboxEntry {
+export interface AppointmentRequestInboxEntry {
   type: 'APPOINTMENT_REQUEST';
   appointment: AdminAppointment;
 }
+
+export interface RescheduleRequestInboxEntry {
+  type: 'RESCHEDULE_REQUEST';
+  appointment: AdminAppointment;
+  reschedule: RescheduleRequest;
+}
+
+/** Unión discriminada por `type`: la UI distingue la entrada con `entry.type`. */
+export type InboxEntry = AppointmentRequestInboxEntry | RescheduleRequestInboxEntry;
 
 export interface RejectRequest {
   reason: string;
@@ -506,6 +756,8 @@ export interface AdminSummary {
   activeProfessionals: number;
   activeSpecialties: number;
   appointmentsToday: number;
+  /** S4 · Solicitudes de reprogramación `PENDING`. */
+  pendingReschedules: number;
 }
 
 /* --------------------------- PROFESSIONAL: payloads ----------------------- */

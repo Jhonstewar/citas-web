@@ -52,20 +52,21 @@ Dos reglas transversales, válidas para las 17:
   **no** es "sesión expirada") · cuenta desactivada (403) · 5xx/sin red · éxito con
   redirección a la ruta que el usuario intentaba abrir.
 
-## 3. Recuperación y cambio de contraseña · `/recuperar-password`
+## 3. Recuperación y cambio de contraseña · `/recuperar-password`, `/restablecer-password`
 
 - **Actor**: visitante sin sesión (RF-03).
-- **Datos**: paso 1, email. Paso 2 (con token en la URL), nueva contraseña y
-  confirmación. En desarrollo el backend puede exponer el token de forma controlada:
+- **Datos**: paso 1 (`/recuperar-password`), email. Paso 2 (`/restablecer-password?token=…`),
+  nueva contraseña y confirmación; al abrirse, la pantalla guarda el token y lo quita de la
+  barra de direcciones para que no quede en el historial. En desarrollo el backend puede exponer el token de forma controlada:
   la UI lo muestra marcado como dato de laboratorio.
 - **Acciones**: solicitar enlace; reenviar; definir nueva contraseña.
 - **Estados**: cargando · éxito con mensaje neutro ("si el correo corresponde a una
   cuenta…") para no revelar qué correos existen · token inválido, caducado o ya usado
   (es de un solo uso) con opción de pedir otro · 400 de política de contraseña · 5xx.
 
-## 4. Home / dashboard USER · `/`
+## 4. Home / dashboard USER · `/paciente`
 
-- **Actor**: USER.
+- **Actor**: USER. `/` redirige al inicio del rol (`/paciente`, `/profesional` o `/admin`).
 - **Datos**: próxima cita aprobada (sede, profesional, especialidad, fecha/hora,
   duración, estado — RF-13) y contadores de citas por estado; accesos a buscar
   disponibilidad y a mis citas.
@@ -75,7 +76,7 @@ Dos reglas transversales, válidas para las 17:
   con la acción primaria "Buscar disponibilidad" como único foco · error de carga con
   reintento · 401 vuelve a login · 403 si el rol no corresponde.
 
-## 5. Buscar disponibilidad · `/disponibilidad`
+## 5. Buscar disponibilidad · `/paciente/agendar` (pasos 1 a 3)
 
 - **Actor**: USER (RF-10).
 - **Datos**: filtros de sede (HIC / ICV, catálogo fijo de PRD §3), tipo de cita
@@ -89,7 +90,7 @@ Dos reglas transversales, válidas para las 17:
   cargando sobre la lista, con los filtros aún operables · error 400 de filtros
   inválidos · 5xx · 401.
 
-## 6. Solicitar cita · `/citas/nueva`
+## 6. Solicitar cita · `/paciente/agendar` (paso 4, confirmación)
 
 - **Actor**: USER (RF-11 general, RF-12 especializada).
 - **Datos**: resumen de lo escogido — sede, especialidad, profesional, fecha/hora,
@@ -103,7 +104,7 @@ Dos reglas transversales, válidas para las 17:
   activa o no corresponde al profesional (RN-08) · éxito diferenciado según el estado
   con el que nació la cita.
 
-## 7. Mis citas y detalle · `/citas`, `/citas/:id`
+## 7. Mis citas y detalle · `/paciente/citas`, `/paciente/citas/:id`
 
 - **Actor**: USER (RF-13).
 - **Datos**: listado con sede, profesional, especialidad, fecha/hora, duración, estado
@@ -116,7 +117,7 @@ Dos reglas transversales, válidas para las 17:
   cita que no pertenece al usuario · acciones deshabilitadas con motivo visible cuando
   la cita es pasada o está en estado terminal.
 
-## 8. Cancelar cita (diálogo sobre el detalle)
+## 8. Cancelar cita (diálogo sobre el detalle y sobre la próxima cita de `/paciente`)
 
 - **Actor**: USER (RF-14).
 - **Datos**: datos de la cita a cancelar y advertencia de que una cita cancelada no se
@@ -125,7 +126,7 @@ Dos reglas transversales, válidas para las 17:
 - **Estados**: cargando con confirmación bloqueada · 409 si la cita ya cambió de estado
   en el servidor · 403 si no es del usuario · éxito con la lista actualizada.
 
-## 9. Solicitar reprogramación · `/citas/:id/reprogramar`
+## 9. Solicitar reprogramación · `/paciente/citas/:id/reprogramar`
 
 - **Actor**: USER (RF-15).
 - **Datos**: cita original (que se conserva hasta que ADMIN decida, RN-10), profesional
@@ -146,7 +147,7 @@ Dos reglas transversales, válidas para las 17:
 - **Estados**: vacío (día sin citas) · cargando · error · 403 si el usuario no es
   PROFESSIONAL.
 
-## 11. Gestionar bloques / calendario · `/profesional/bloques`
+## 11. Gestionar bloques / calendario · `/profesional/agenda` (pestaña Bloques)
 
 - **Actor**: PROFESSIONAL (RF-08).
 - **Datos**: bloques por día con hora de inicio, hora de fin y sede; solo sedes
@@ -159,7 +160,7 @@ Dos reglas transversales, válidas para las 17:
   backend es el que se muestra · 403 sede no asignada · 409 al editar un bloque que ya
   tiene citas · éxito.
 
-## 12. Agenda del profesional · `/profesional/agenda`
+## 12. Agenda del profesional · `/profesional/agenda?vista=citas` (pestaña Citas)
 
 - **Actor**: PROFESSIONAL (RF-16, RF-17).
 - **Datos**: vista por día y por semana, filtrada por sede, con las citas `APPROVED`:
@@ -181,7 +182,7 @@ Dos reglas transversales, válidas para las 17:
 - **Estados**: vacío (nada pendiente, que es un resultado bueno y debe leerse así) ·
   cargando · error · 403 si el rol no es ADMIN.
 
-## 14. Aprobar / rechazar citas · `/admin/citas`
+## 14. Aprobar / rechazar citas · `/admin/solicitudes?tipo=APPOINTMENT_REQUEST`
 
 - **Actor**: ADMIN (RF-12, RF-18).
 - **Datos**: bandeja de citas especializadas en `REQUESTED` con solicitante, sede,
@@ -194,7 +195,7 @@ Dos reglas transversales, válidas para las 17:
   también lo valida) · 409 si otro ADMIN ya resolvió la solicitud, refrescando la fila ·
   403 · 5xx.
 
-## 15. Aprobar / rechazar reprogramaciones · `/admin/reprogramaciones`
+## 15. Aprobar / rechazar reprogramaciones · `/admin/solicitudes?tipo=RESCHEDULE_REQUEST`
 
 - **Actor**: ADMIN (RF-15, RF-18).
 - **Datos**: solicitudes en `PENDING` mostrando en paralelo la franja original y la
@@ -205,7 +206,7 @@ Dos reglas transversales, válidas para las 17:
 - **Estados**: vacío · cargando por fila · 400 sin motivo · 409 si la solicitud ya fue
   resuelta o la cita cambió · 403 · 5xx.
 
-## 16. CRUD de profesionales · `/admin/profesionales`
+## 16. CRUD de profesionales · `/admin/profesionales`, `/admin/profesionales/nuevo`, `/admin/profesionales/:id`
 
 - **Actor**: ADMIN (RF-07).
 - **Datos**: listado de profesionales con nombre, código profesional, matrícula,
@@ -218,7 +219,7 @@ Dos reglas transversales, válidas para las 17:
   documento, email o matrícula · 403 · confirmación explícita al desactivar, explicando
   que deja de poder publicar agenda.
 
-## 17. CRUD de especialidades · `/admin/especialidades` y CRUD de EPS/planes · `/admin/eps`
+## 17. CRUD de especialidades · `/admin/especialidades` y CRUD de EPS/planes · `/admin/eps`, `/admin/eps/:id`
 
 - **Actor**: ADMIN (RF-06).
 - **Datos**:
@@ -235,13 +236,35 @@ Dos reglas transversales, válidas para las 17:
 
 ## Estado de implementación
 
-| Pantalla | Ruta | Estado |
-| --- | --- | --- |
-| Registro | `/registro` | Implementada (S2) |
-| Login | `/login` | Implementada (S2) |
-| Recuperación de contraseña (paso 1) | `/recuperar-password` | Implementada (S2) |
-| Home/dashboard USER | `/` | Placeholder protegido (S2) |
-| Las 13 restantes | — | Pendientes, tras el diseño aprobado en Stitch |
+Estado real al cierre de S4 (2026-09-25). Las rutas son las de `src/App.tsx`; las rutas
+protegidas cuelgan de un prefijo por rol (`/paciente` USER, `/profesional` PROFESSIONAL,
+`/admin` ADMIN) y `/` redirige al inicio del rol. Todas las pantallas llevan el diseño aprobado
+de Stitch (S4).
 
-Rutas y tipos REST están centralizados en `src/api/contracts.ts` y deben reconciliarse
-contra `citas-api` cuando el backend publique su contrato (RF-20).
+| § | Pantalla | Ruta en la app | Estado |
+| --- | --- | --- | --- |
+| 1 | Registro | `/registro` | Implementada (S2; plan de afiliación opcional en S4) |
+| 2 | Login | `/login` | Implementada (S2); con sesión ya abierta (p. ej. restaurada por la cookie, D36) redirige al inicio del rol o a la ruta de retorno (S4) |
+| 3 | Recuperación de contraseña, paso 1 | `/recuperar-password` | Implementada (S2; token de laboratorio HU-006 en S4) |
+| 3 | Recuperación de contraseña, paso 2 | `/restablecer-password?token=…` | Implementada (S4, HU-007) |
+| 4 | Home / dashboard USER | `/paciente` | Implementada (S3; cancelar la próxima cita en S4) |
+| 4 | Perfil y afiliación (acción de §4, RF-04) | `/paciente/perfil` | Implementada (S4, HU-008, HU-009) |
+| 5–6 | Buscar disponibilidad y solicitar cita | `/paciente/agendar` (asistente de 4 pasos) | Implementada (S3) |
+| 7 | Mis citas y detalle | `/paciente/citas`, `/paciente/citas/:id` | Implementada (S3; acciones e historial de reprogramación en S4, HU-028) |
+| 8 | Cancelar cita (diálogo) | sobre `/paciente/citas/:id` y `/paciente` | Implementada (S4, HU-026) |
+| 9 | Solicitar reprogramación | `/paciente/citas/:id/reprogramar` | Implementada (S4, HU-027) |
+| 10 | Dashboard PROFESSIONAL | `/profesional` | Implementada (S3) |
+| 11 | Gestionar bloques | `/profesional/agenda` (pestaña Bloques) | Implementada (S3) |
+| 12 | Agenda del profesional y cierre de atención | `/profesional/agenda?vista=citas` (pestaña Citas) | Implementada (S4, HU-020, HU-021) |
+| 13 | Dashboard ADMIN | `/admin` | Implementada (S3; contador de reprogramaciones en S4) |
+| 14 | Aprobar / rechazar citas | `/admin/solicitudes?tipo=APPOINTMENT_REQUEST` | Implementada (S3) |
+| 15 | Aprobar / rechazar reprogramaciones | `/admin/solicitudes?tipo=RESCHEDULE_REQUEST` | Implementada (S4, HU-029, HU-031) |
+| 16 | CRUD de profesionales | `/admin/profesionales`, `/admin/profesionales/nuevo`, `/admin/profesionales/:id` | Implementada (S3) |
+| 17 | CRUD de especialidades | `/admin/especialidades` | Implementada (S3) |
+| 17 | CRUD de EPS y planes | `/admin/eps`, `/admin/eps/:id` | Implementada (S4, HU-012) |
+
+Las bandejas de §14 y §15 son la misma pantalla (`InboxPage`) con el filtro "Tipo" en la
+consulta `tipo`; sin él, `/admin/solicitudes` muestra ambos tipos.
+
+Rutas y tipos REST están centralizados en `src/api/contracts.ts` y se reconcilian contra los
+contratos de la wiki (`contrato-rest-identidad`, `contrato-rest-citas`).

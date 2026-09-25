@@ -112,9 +112,13 @@
   min-height: 100dvh;
 }
 
+/*
+ * Pantallas estrechas: panel desplegable bajo la cabecera, para que la hamburguesa (que ya no
+ * tiene una "X" gemela dentro del panel) siga visible y sirva también para cerrarlo.
+ */
 .sidebar {
   position: fixed;
-  inset: 0 auto 0 0;
+  inset: var(--topbar-height) auto 0 0;
   z-index: 40;
   width: min(var(--sidebar-width), 85vw);
   display: flex;
@@ -146,6 +150,11 @@
   z-index: 30;
   border: 0;
   background: var(--color-scrim);
+}
+
+/* Con el panel abierto, la cabecera queda por encima del fondo: la hamburguesa lo cierra. */
+.app--menu-open .topbar {
+  z-index: 50;
 }
 
 .sidebar__brand {
@@ -269,10 +278,6 @@
   color: var(--color-text-secondary);
 }
 
-.sidebar__close {
-  margin-left: auto;
-}
-
 .app__main {
   min-width: 0;
   display: flex;
@@ -389,8 +394,13 @@
   .app {
     display: grid;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    transition: grid-template-columns var(--motion-base) var(--easing);
   }
 
+  /*
+   * Barra fija. Al ocultarla, la columna se reduce a 0 y la barra se desliza a la izquierda al
+   * mismo ritmo; `visibility` la saca del orden de tabulación al terminar.
+   */
   .sidebar {
     position: sticky;
     top: 0;
@@ -398,16 +408,23 @@
     width: var(--sidebar-width);
     transform: none;
     visibility: visible;
-    transition: none;
+    transition: transform var(--motion-base) var(--easing), visibility var(--motion-base);
+  }
+
+  .app--sidebar-collapsed {
+    grid-template-columns: 0rem minmax(0, 1fr);
+  }
+
+  .app--sidebar-collapsed .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;
   }
 
   .app--menu-open .sidebar {
     box-shadow: none;
   }
 
-  .app--menu-open .app__scrim,
-  .topbar__menu,
-  .sidebar__close {
+  .app--menu-open .app__scrim {
     display: none;
   }
 
@@ -415,8 +432,20 @@
     padding: var(--space-2) var(--space-6);
   }
 
+  /* La marca vive en la barra lateral; si esta se oculta, reaparece en la cabecera. */
   .topbar__brand {
     display: none;
+  }
+
+  .app--sidebar-collapsed .topbar__brand {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app,
+  .sidebar {
+    transition: none;
   }
 
   .content {
@@ -2330,4 +2359,121 @@ a.appointment:hover {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pestañas (Tabs)                                                            */
+/* -------------------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tabs__list {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  margin-bottom: calc(-1 * var(--border-width));
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--easing),
+    background-color var(--motion-fast) var(--easing),
+    border-color var(--motion-fast) var(--easing);
+}
+
+.tabs__tab:hover:not(:disabled) {
+  color: var(--color-primary);
+  background: var(--color-surface-muted);
+}
+
+.tabs__tab[aria-selected='true'] {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tabs__tab:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+}
+
+.tabs__tab:disabled {
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.tabs__icon {
+  display: inline-flex;
+}
+
+.tabs__panel:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* S4 · Citas del profesional y cambio de franja de la bandeja                */
+/* -------------------------------------------------------------------------- */
+
+.pro-appointment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.pro-appointment__reason {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Franja actual → propuesta de una reprogramación. En móvil la celda ya es parte de la tarjeta
+   de `DataTable`, así que los dos lados se apilan. */
+.slot-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+.slot-change__side {
+  display: flex;
+  flex-direction: column;
+}
+
+.slot-change__label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.slot-change__side--proposed .slot-change__label {
+  color: var(--color-primary);
+}
+
+.slot-change__arrow {
+  flex: none;
+  color: var(--color-text-secondary);
 }
