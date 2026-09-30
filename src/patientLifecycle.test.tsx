@@ -173,7 +173,6 @@ describe('cancelar cita (HU-026)', () => {
     await openDetail(
       lifecycle(appointmentDetail(), {
         'POST /api/patient/appointments/100/cancel': problem(400, 'La petición contiene campos inválidos', {
-          code: 'VALIDATION',
           fieldErrors: { reason: 'El motivo contiene caracteres no permitidos' },
         }),
       }),
@@ -292,6 +291,29 @@ describe('solicitar reprogramación (HU-027)', () => {
     await waitFor(() =>
       expect(calls.filter((call) => call.path === '/api/patient/availability').length).toBeGreaterThan(1),
     );
+  });
+
+  it.each([
+    ['PAST_TIME', 'No se pueden reservar franjas en el pasado'],
+    ['SLOT_NOT_AVAILABLE', 'Esa franja no está publicada o no alcanza para la duración de la especialidad'],
+  ])('422 %s: muestra el mensaje del servidor, recarga los horarios y exige otra franja', async (code, detail) => {
+    const calls = installBackend(
+      lifecycle(appointmentDetail(), {
+        'POST /api/patient/appointments/100/reschedule': problem(422, detail, { code }),
+      }),
+    );
+    await renderLoggedIn('Laura Gómez', '/paciente/citas/100/reprogramar');
+    fireEvent.click(await screen.findByRole('button', { name: /08:00 a 09:00/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar reprogramación' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/Esa franja ya no está disponible/);
+    expect(alert.textContent).toContain(detail);
+    expect(window.location.pathname).toBe('/paciente/citas/100/reprogramar');
+    await waitFor(() =>
+      expect(calls.filter((call) => call.path === '/api/patient/availability').length).toBeGreaterThan(1),
+    );
+    expect((screen.getByRole('button', { name: 'Solicitar reprogramación' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('409 RESCHEDULE_PENDING: recarga la cita y la muestra como no elegible', async () => {

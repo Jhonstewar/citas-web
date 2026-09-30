@@ -65,7 +65,6 @@ export const MAX_PASSWORD_BYTES = 72;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const DOCUMENT_NUMBER_PATTERN = /^[A-Za-z0-9-]+$/;
-const PHONE_PATTERN = /^[+]?[0-9\s-]{7,}$/;
 /** Política D29: cualquier letra Unicode (`\p{L}`, requiere la bandera `u`). */
 const LETTER_PATTERN = /\p{L}/u;
 
@@ -78,7 +77,6 @@ export function isDocumentTypeCode(value: string): value is DocumentTypeCode {
 function validateName(value: string, label: string): string | undefined {
   const trimmed = value.trim();
   if (trimmed === '') return `Escribe tus ${label}.`;
-  if (trimmed.length < 2) return `Los ${label} deben tener al menos 2 caracteres.`;
   if (trimmed.length > MAX_NAMES) return `Los ${label} no pueden superar ${MAX_NAMES} caracteres.`;
   return undefined;
 }
@@ -148,14 +146,8 @@ export function validateRegisterForm(
   const email = validateEmailValue(values.email);
   if (email !== undefined) errors.email = email;
 
-  const phone = values.phone.trim();
-  if (phone === '') {
-    errors.phone = 'Escribe tu teléfono de contacto.';
-  } else if (!PHONE_PATTERN.test(phone)) {
-    errors.phone = 'El teléfono debe tener al menos 7 dígitos y admite +, espacios y guiones.';
-  } else if (phone.length > MAX_PHONE) {
-    errors.phone = `El teléfono no puede superar ${MAX_PHONE} caracteres.`;
-  }
+  const phone = validatePhone(values.phone);
+  if (phone !== undefined) errors.phone = phone;
 
   const password = validatePasswordPolicy(values.password);
   if (password !== undefined) errors.password = password;
@@ -247,12 +239,14 @@ export interface ProfileFormValues {
   phone: string;
 }
 
+/**
+ * HU-008 · Mismas reglas que el servidor (`RegisterRequest` y `User.withContact`): obligatorio y
+ * máximo 30 caracteres, sin patrón de formato ni longitud mínima. El cliente no es más estricto
+ * que el backend (DoD HU-008 "sin divergencia"); los nombres igual: obligatorios y máximo 100.
+ */
 function validatePhone(value: string): string | undefined {
   const phone = value.trim();
   if (phone === '') return 'Escribe tu teléfono de contacto.';
-  if (!PHONE_PATTERN.test(phone)) {
-    return 'El teléfono debe tener al menos 7 dígitos y admite +, espacios y guiones.';
-  }
   if (phone.length > MAX_PHONE) return `El teléfono no puede superar ${MAX_PHONE} caracteres.`;
   return undefined;
 }

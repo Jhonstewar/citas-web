@@ -173,3 +173,49 @@ describe('Modal accesible', () => {
     expect(document.activeElement).toBe(opener);
   });
 });
+
+describe('huecos de la verificación de F10 (navegación y sesión por rol)', () => {
+  const PROFESSIONAL_ME = { id: 1, fullName: 'Andrés Rincón', specialties: [], sites: [] };
+
+  function professionalScript() {
+    return {
+      ...sessionScript('PROFESSIONAL'),
+      'GET /api/professional/me': json(200, PROFESSIONAL_ME),
+      'GET /api/professional/blocks': json(200, []),
+      'GET /api/professional/appointments': json(200, []),
+    };
+  }
+
+  it.each([
+    ['PROFESSIONAL', '/admin', 'Andrés Rincón', '/api/admin'],
+    ['PROFESSIONAL', '/paciente/citas', 'Andrés Rincón', '/api/patient'],
+    ['USER', '/profesional/agenda', 'Laura Gómez', '/api/professional'],
+  ] as const)('%s en %s ve "Sin permiso" sin pedir la API ajena ni cerrar sesión', async (role, path, name, foreignApi) => {
+    const calls = installBackend(
+      role === 'PROFESSIONAL'
+        ? professionalScript()
+        : { ...sessionScript('USER'), 'GET /api/patient/appointments': json(200, []) },
+    );
+
+    await renderLoggedIn(name, path);
+
+    expect(await screen.findByText('Sin permiso para ver esta página')).not.toBeNull();
+    expect(calls.some((call) => call.path.startsWith(foreignApi))).toBe(false);
+    expect(calls.some((call) => call.path === '/api/auth/logout')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).not.toBeNull();
+  });
+
+  it('el PROFESSIONAL cierra sesión: revoca en el servidor y vuelve al login', async () => {
+    const calls = installBackend(professionalScript());
+    await renderLoggedIn('Andrés Rincón');
+    expect(window.location.pathname).toBe('/profesional');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+
+    expect(await screen.findByRole('heading', { name: 'Inicia sesión' })).not.toBeNull();
+    const logout = calls.filter((call) => call.path === '/api/auth/logout');
+    expect(logout).toHaveLength(1);
+    expect(logout[0]?.method).toBe('POST');
+    expect(screen.queryByText('Andrés Rincón')).toBeNull();
+  });
+});

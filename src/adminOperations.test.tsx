@@ -499,3 +499,66 @@ describe('correcciones de la verificación independiente', () => {
     expect(calls.some((call) => call.path.includes('NaN') || call.path.endsWith('/abc'))).toBe(false);
   });
 });
+
+describe('huecos de la verificación de F10 (operación del ADMIN)', () => {
+  it('HU-029: el filtro de profesional viaja como `professionalId` en la consulta', async () => {
+    const calls = await openAs(
+      '/admin/solicitudes',
+      adminScript({ 'GET /api/admin/inbox': json(200, []) }),
+      'Solicitudes pendientes',
+    );
+    await screen.findByText('¡Todo al día! No hay solicitudes pendientes');
+    await screen.findByRole('option', { name: 'Andrés Rincón' });
+
+    fireEvent.change(screen.getByLabelText('Profesional'), { target: { value: '10' } });
+
+    await waitFor(() => {
+      expect(calls.filter((call) => call.path === '/api/admin/inbox').at(-1)?.query).toEqual({
+        professionalId: '10',
+      });
+    });
+  });
+
+  it('HU-011: reactivar una especialidad envía PATCH { active: true } y la muestra activa', async () => {
+    const inactive = { ...CARDIO, active: false };
+    const calls = await openAs(
+      '/admin/especialidades',
+      adminScript({
+        'GET /api/admin/specialties': json(200, [GENERAL, inactive]),
+        'PATCH /api/admin/specialties/2/status': json(200, { ...CARDIO, active: true }),
+      }),
+      'Especialidades',
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar Cardiología' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Activar esta especialidad?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Activar' }));
+
+    expect(await screen.findByText('Especialidad activada')).not.toBeNull();
+    const patch = calls.find((call) => call.method === 'PATCH');
+    expect(patch?.path).toBe('/api/admin/specialties/2/status');
+    expect(patch?.body).toEqual({ active: true });
+    expect(await screen.findByRole('button', { name: 'Desactivar Cardiología' })).not.toBeNull();
+  });
+
+  it('HU-016: reactivar un profesional envía PATCH { active: true }', async () => {
+    const inactive = { ...PROFESSIONAL, active: false };
+    const calls = await openAs(
+      '/admin/profesionales',
+      adminScript({
+        'GET /api/admin/professionals': json(200, [inactive]),
+        'PATCH /api/admin/professionals/10/status': json(200, { ...PROFESSIONAL, active: true }),
+      }),
+      'Profesionales',
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar a Andrés Rincón' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Activar a este profesional?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Activar' }));
+
+    expect(await screen.findByText('Profesional activado')).not.toBeNull();
+    const patch = calls.find((call) => call.method === 'PATCH');
+    expect(patch?.path).toBe('/api/admin/professionals/10/status');
+    expect(patch?.body).toEqual({ active: true });
+  });
+});

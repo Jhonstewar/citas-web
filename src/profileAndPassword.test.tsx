@@ -99,10 +99,21 @@ describe('perfil (HU-008)', () => {
   it('valida en el cliente antes de enviar', async () => {
     const calls = await openProfile(profile(patient()));
     const personal = card('Datos personales');
+    fireEvent.change(within(personal).getByLabelText(/Teléfono/), { target: { value: '   ' } });
+    fireEvent.click(within(personal).getByRole('button', { name: 'Guardar cambios' }));
+    expect(await within(personal).findByText('Escribe tu teléfono de contacto.')).not.toBeNull();
+    expect(calls.some((call) => call.method === 'PUT')).toBe(false);
+  });
+
+  it('DoD HU-008: no es más estricta que el servidor (teléfono corto y nombre de una letra se envían)', async () => {
+    const calls = await openProfile(profile(patient()));
+    const personal = card('Datos personales');
+    fireEvent.change(within(personal).getByLabelText(/Nombres/), { target: { value: 'L' } });
     fireEvent.change(within(personal).getByLabelText(/Teléfono/), { target: { value: '12' } });
     fireEvent.click(within(personal).getByRole('button', { name: 'Guardar cambios' }));
-    expect(await within(personal).findByText(/al menos 7 dígitos/)).not.toBeNull();
-    expect(calls.some((call) => call.method === 'PUT')).toBe(false);
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.path === '/api/me')).toBe(true));
+    const put = calls.find((call) => call.method === 'PUT' && call.path === '/api/me');
+    expect(put?.body).toMatchObject({ firstNames: 'L', phone: '12' });
   });
 
   it('400 FIELD_NOT_EDITABLE: muestra el mensaje del servidor con el campo', async () => {
@@ -122,7 +133,6 @@ describe('perfil (HU-008)', () => {
     await openProfile(
       profile(patient(), {
         'PUT /api/me': problem(400, 'La petición contiene campos inválidos', {
-          code: 'VALIDATION',
           fieldErrors: { phone: 'El teléfono ya no es válido para el servidor' },
         }),
       }),
@@ -246,7 +256,6 @@ describe('restablecer contraseña (HU-007)', () => {
   it('fieldErrors.newPassword del servidor aparece en su campo', async () => {
     openReset('/restablecer-password?token=tok-1', {
       'POST /api/auth/password-reset': problem(400, 'La petición contiene campos inválidos', {
-        code: 'VALIDATION',
         fieldErrors: { newPassword: 'La contraseña no cumple la política del servidor' },
       }),
     });

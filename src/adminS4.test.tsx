@@ -461,3 +461,74 @@ describe('planes de una EPS (HU-012)', () => {
     expect(calls.some((call) => call.path.startsWith('/api/admin/eps'))).toBe(false);
   });
 });
+
+describe('huecos de la verificación de F10 (EPS y planes, HU-012)', () => {
+  const withRegimes = (script: Script): Script =>
+    adminScript({ 'GET /api/catalogs/regimes': json(200, REGIMES), ...script });
+
+  it('reactivar una EPS envía PATCH { active: true } y queda "Activa"', async () => {
+    const calls = await openAs('/admin/eps', adminScript(epsAdminScript([eps({ active: false })])), 'EPS y planes');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar EPS de prueba' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Activar esta EPS?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Activar' }));
+
+    expect(await screen.findByText('EPS activada')).not.toBeNull();
+    const patch = calls.find((call) => call.method === 'PATCH');
+    expect(patch?.path).toBe('/api/admin/eps/1/status');
+    expect(patch?.body).toEqual({ active: true });
+    const row = within(screen.getByRole('table')).getByText('EPS de prueba').closest('tr') as HTMLElement;
+    expect(within(row).getByText('Activa')).not.toBeNull();
+  });
+
+  it('una EPS sin planes se elimina: DELETE 204 la quita del listado', async () => {
+    const calls = await openAs(
+      '/admin/eps',
+      adminScript(epsAdminScript([eps(), eps({ id: 2, code: 'EPS_OTRA', name: 'EPS otra' })])),
+      'EPS y planes',
+    );
+
+    const row = (await screen.findByText('EPS otra')).closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Eliminar EPS otra' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Eliminar esta EPS?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+
+    expect(await screen.findByText('EPS eliminada')).not.toBeNull();
+    expect(calls.filter((call) => call.method === 'DELETE').map((call) => call.path)).toEqual(['/api/admin/eps/2']);
+    await waitFor(() => expect(within(screen.getByRole('table')).queryByText('EPS otra')).toBeNull());
+    expect(within(screen.getByRole('table')).getByText('EPS de prueba')).not.toBeNull();
+  });
+
+  it('reactivar un plan envía PATCH { active: true } a su ruta y queda "Activo"', async () => {
+    const calls = await openAs(
+      '/admin/eps/1',
+      withRegimes(epsAdminScript([eps()], [epsPlan({ active: false })])),
+      'EPS de prueba',
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar plan Plan básico' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Activar este plan?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Activar' }));
+
+    expect(await screen.findByText('Plan activado')).not.toBeNull();
+    const patch = calls.find((call) => call.method === 'PATCH');
+    expect(patch?.path).toBe('/api/admin/eps-plans/3/status');
+    expect(patch?.body).toEqual({ active: true });
+    const row = within(screen.getByRole('table')).getByText('Plan básico').closest('tr') as HTMLElement;
+    expect(within(row).getByText('Activo')).not.toBeNull();
+  });
+
+  it('un plan sin afiliaciones se elimina: DELETE 204 lo quita de la tabla', async () => {
+    const calls = await openAs('/admin/eps/1', withRegimes(epsAdminScript([eps()], [epsPlan()])), 'EPS de prueba');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar plan Plan básico' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Eliminar este plan?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+
+    expect(await screen.findByText('Plan eliminado')).not.toBeNull();
+    expect(calls.filter((call) => call.method === 'DELETE').map((call) => call.path)).toEqual([
+      '/api/admin/eps-plans/3',
+    ]);
+    await waitFor(() => expect(screen.queryByRole('cell', { name: 'Plan básico' })).toBeNull());
+  });
+});

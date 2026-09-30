@@ -300,8 +300,21 @@ function coded(status: number, code: string, detail: string, extra: Record<strin
   return problem(status, detail, { code, ...extra });
 }
 
+/**
+ * 400 de Bean Validation, como `GlobalExceptionHandler.handleMethodArgumentNotValid` del backend:
+ * título "Datos inválidos", `fieldErrors` y SIN `code` (el `code: VALIDATION` solo lo llevan los
+ * 400 que lanza el dominio con `InvalidRequestException`).
+ */
 function validation(fieldErrors: Record<string, string>): Response {
-  return coded(400, ERROR_CODES.validation, 'La petición contiene campos inválidos', { fieldErrors });
+  return new Response(
+    JSON.stringify({
+      title: 'Datos inválidos',
+      status: 400,
+      detail: 'La petición contiene campos inválidos',
+      fieldErrors,
+    }),
+    { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+  );
 }
 
 /** Cita futura `APPROVED`, cancelable y reprogramable, en el detalle del paciente. */
@@ -846,7 +859,7 @@ export interface PasswordScriptOptions {
 }
 
 export const RECOVERY_MESSAGE =
-  'Si el correo está registrado, recibirás instrucciones para restablecer la contraseña.';
+  'Si el correo corresponde a una cuenta, recibirás las instrucciones para restablecer la contraseña';
 
 /**
  * `POST /api/auth/password-recovery` responde 202 con el mismo `message` exista o no el email.

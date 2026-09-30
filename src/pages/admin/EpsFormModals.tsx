@@ -98,7 +98,7 @@ function EpsForm({ eps, onClose, onSaved }: EpsFormModalProps) {
           <TextField
             label="Código"
             required
-            maxLength={40}
+            maxLength={20}
             hint="Identificador estable en mayúsculas; no se puede cambiar después."
             value={code}
             error={errors.code}
@@ -116,7 +116,7 @@ function EpsForm({ eps, onClose, onSaved }: EpsFormModalProps) {
         <TextField
           label="Nombre"
           required
-          maxLength={120}
+          maxLength={160}
           hint="Usa nombres de demostración: los datos del laboratorio son sintéticos."
           value={name}
           error={errors.name}
@@ -209,7 +209,7 @@ function EpsPlanForm({ epsId, plan, regimes, onClose, onSaved }: EpsPlanFormModa
           <TextField
             label="Código"
             required
-            maxLength={40}
+            maxLength={30}
             hint="Identificador estable en mayúsculas; no se puede cambiar después."
             value={code}
             error={errors.code}
@@ -227,7 +227,7 @@ function EpsPlanForm({ epsId, plan, regimes, onClose, onSaved }: EpsPlanFormModa
         <TextField
           label="Nombre"
           required
-          maxLength={120}
+          maxLength={160}
           value={name}
           error={errors.name}
           disabled={saving}
