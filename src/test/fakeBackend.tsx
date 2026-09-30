@@ -10,6 +10,7 @@ import {
   type AuthTokensResponse,
   type Eps,
   type EpsPlan,
+  type HistoryEntry,
   type HourMinute,
   type InboxEntry,
   type InsuranceRef,
@@ -325,9 +326,15 @@ export function appointmentDetail(overrides: Partial<AppointmentDetail> = {}): A
   };
 }
 
+/**
+ * La misma cita vista por el ADMIN: con el bloque `patient` y **sin** `cancellable` ni
+ * `reschedulable`, que el backend solo emite al paciente (aclaración 5 de S4). El fake omite las
+ * claves para que ninguna prueba dependa de un dato que la API real no manda.
+ */
 export function adminAppointment(overrides: Partial<AdminAppointment> = {}): AdminAppointment {
+  const { cancellable: _cancellable, reschedulable: _reschedulable, ...detail } = appointmentDetail();
   return {
-    ...appointmentDetail(),
+    ...detail,
     patient: {
       id: 5,
       fullName: 'Laura Gómez',
@@ -372,6 +379,7 @@ export function professionalAppointment(
     specialty: SPECIALTY_CARDIO,
     patient: { fullName: 'Laura Gómez', documentType: 'CC', documentNumber: '1001' },
     closable: false,
+    pendingReschedule: false,
     ...overrides,
   };
 }
@@ -505,7 +513,8 @@ export function patientLifecycleScript(initial: AppointmentDetail): Script {
 /**
  * HU-020/HU-021, con estado. `GET` exige `from`/`to` y filtra por rango, sede y `APPROVED`.
  * Cerrar: 404 si no es suya, 409 `INVALID_TRANSITION` si no está `APPROVED`,
- * `APPOINTMENT_NOT_STARTED` si no es `closable`.
+ * `APPOINTMENT_NOT_STARTED` si no es `closable`. D38: el cierre cancela la solicitud de
+ * reprogramación `PENDING` del paciente, así que la cita cerrada ya no la tiene.
  */
 export function professionalAppointmentsScript(initial: ProfessionalAppointment[]): Script {
   let appointments = [...initial];
@@ -519,7 +528,13 @@ export function professionalAppointmentsScript(initial: ProfessionalAppointment[
     if (!current.closable) {
       return coded(409, ERROR_CODES.appointmentNotStarted, 'La cita todavía no ha empezado');
     }
-    const closed = { ...current, status: target, statusName: STATUS_NAMES[target], closable: false };
+    const closed = {
+      ...current,
+      status: target,
+      statusName: STATUS_NAMES[target],
+      closable: false,
+      pendingReschedule: false,
+    };
     appointments = appointments.map((appointment) => (appointment.id === id ? closed : appointment));
     return json(200, closed);
   };
@@ -551,6 +566,8 @@ export function professionalAppointmentsScript(initial: ProfessionalAppointment[
  * HU-029/HU-031, con estado. La bandeja filtra por `type`; en una reprogramación `date` y
  * `siteId` miran la franja propuesta (D24). Decidir: 404, 409 `INVALID_TRANSITION` si ya no está
  * `PENDING`, 400 sin motivo al rechazar. Aprobar mueve la cita a la franja propuesta.
+ * D39: solo la aprobación escribe fila de historial (`event: 'RESCHEDULED'`); el rechazo deja el
+ * motivo en la solicitud (`decisionReason`) y no toca la cita ni su historial.
  */
 export function adminRescheduleScript(initial: InboxEntry[]): Script {
   let entries = [...initial];
@@ -579,11 +596,28 @@ export function adminRescheduleScript(initial: InboxEntry[]): Script {
     const moved = approve
       ? { date: proposed.date, startTime: proposed.startTime, endTime: proposed.endTime, site: proposed.site }
       : {};
+    // D39: la aprobación deja una fila con el MISMO estado y `event = 'RESCHEDULED'`; el rechazo,
+    // ninguna.
+    const history: HistoryEntry[] = approve
+      ? [
+          ...entry.appointment.history,
+          {
+            status: entry.appointment.status,
+            statusName: entry.appointment.statusName,
+            source: 'ADMIN',
+            actorName: 'Marta Ruiz',
+            reason: `Reprogramada de ${entry.reschedule.previous.date} ${entry.reschedule.previous.startTime} a ${proposed.date} ${proposed.startTime}`,
+            changedAt: '2099-09-25T10:00:00',
+            event: 'RESCHEDULED',
+          },
+        ]
+      : entry.appointment.history;
     const appointment: AdminAppointment = {
       ...entry.appointment,
       ...moved,
       pendingReschedule: false,
       lastReschedule: decided,
+      history,
     };
     // La solicitud decidida se conserva (un segundo intento da INVALID_TRANSITION), pero sale de
     // la bandeja, que solo lista lo PENDING.

@@ -332,6 +332,64 @@ describe('planes de una EPS (HU-012)', () => {
     expect(within(row).getByText('Activo')).not.toBeNull();
   });
 
+  it('en una EPS inactiva, un plan activo no se pinta "Activo": no se ofrece', async () => {
+    await openAs(
+      '/admin/eps/1',
+      adminScript({
+        'GET /api/catalogs/regimes': json(200, REGIMES),
+        ...epsAdminScript(
+          [eps({ active: false })],
+          [epsPlan(), epsPlan({ id: 4, code: 'CONTRIB_VIEJO', name: 'Plan viejo', active: false })],
+        ),
+      }),
+      'EPS de prueba',
+    );
+
+    const activeRow = (await screen.findByText('Plan básico')).closest('tr') as HTMLElement;
+    expect(within(activeRow).getByText('Activo · no se ofrece')).not.toBeNull();
+    expect(within(activeRow).queryByText('Activo')).toBeNull();
+    // Un plan inactivo se sigue viendo igual: la EPS no cambia lo que ya estaba apagado.
+    const inactiveRow = screen.getByText('Plan viejo').closest('tr') as HTMLElement;
+    expect(within(inactiveRow).getByText('Inactivo')).not.toBeNull();
+  });
+
+  it('activar un plan de una EPS inactiva no promete que se ofrecerá', async () => {
+    await openAs(
+      '/admin/eps/1',
+      adminScript({
+        'GET /api/catalogs/regimes': json(200, REGIMES),
+        ...epsAdminScript([eps({ active: false })], [epsPlan({ active: false })]),
+      }),
+      'EPS de prueba',
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar plan Plan básico' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Activar este plan?' });
+    expect(
+      within(dialog).getByText(
+        'Plan básico quedará activo, pero no se ofrecerá para afiliaciones nuevas mientras la EPS EPS de prueba esté inactiva.',
+      ),
+    ).not.toBeNull();
+    expect(within(dialog).queryByText(/volverá a ofrecerse/)).toBeNull();
+  });
+
+  it('con la EPS activa, activar un plan sí promete que volverá a ofrecerse', async () => {
+    await openAs(
+      '/admin/eps/1',
+      adminScript({
+        'GET /api/catalogs/regimes': json(200, REGIMES),
+        ...epsAdminScript([eps()], [epsPlan({ active: false })]),
+      }),
+      'EPS de prueba',
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar plan Plan básico' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Activar este plan?' });
+    expect(
+      within(dialog).getByText('Plan básico volverá a ofrecerse para afiliaciones nuevas.'),
+    ).not.toBeNull();
+  });
+
   it('un código de plan repetido en la EPS marca el campo Código', async () => {
     await openAs('/admin/eps/1', plansScript(), 'EPS de prueba');
     await screen.findByText('Plan básico');

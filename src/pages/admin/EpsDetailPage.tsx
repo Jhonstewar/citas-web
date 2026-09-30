@@ -39,6 +39,33 @@ function loadDetail(id: number, signal: AbortSignal): Promise<DetailData> {
 }
 
 /**
+ * Estado efectivo del plan, que es lo que el sistema hará: el catálogo público solo ofrece un
+ * plan activo de una EPS activa, así que un plan activo de una EPS inactiva no puede pintarse
+ * "Activo" en verde como si se ofreciera. El color nunca es el único portador del estado: el
+ * texto lo dice.
+ */
+function planStatusBadge(plan: EpsPlan, epsActive: boolean) {
+  if (!plan.active) return <Badge>Inactivo</Badge>;
+  if (!epsActive) return <Badge tone="warning">Activo · no se ofrece</Badge>;
+  return <Badge tone="success">Activo</Badge>;
+}
+
+/**
+ * Consecuencia real de activar o desactivar el plan, con el mismo criterio que el badge: activar
+ * un plan de una EPS inactiva NO lo pone en el catálogo público, así que el diálogo no puede
+ * prometerlo justo en el momento de decidir.
+ */
+function toggleConsequence(plan: EpsPlan, eps: Eps): string {
+  if (plan.active) {
+    return `${plan.name} dejará de ofrecerse para afiliaciones nuevas. Las afiliaciones existentes se conservan.`;
+  }
+  if (!eps.active) {
+    return `${plan.name} quedará activo, pero no se ofrecerá para afiliaciones nuevas mientras la EPS ${eps.name} esté inactiva.`;
+  }
+  return `${plan.name} volverá a ofrecerse para afiliaciones nuevas.`;
+}
+
+/**
  * Planes de una EPS (HU-012): código, nombre, régimen y estado; alta (código inmutable después),
  * edición de nombre y régimen, activar/desactivar y borrado. Un plan con afiliaciones no se
  * borra (409 PLAN_REFERENCED, D28): se propone desactivarlo.
@@ -130,7 +157,7 @@ export function EpsDetailPage() {
     {
       key: 'status',
       header: 'Estado',
-      render: (plan) => (plan.active ? <Badge tone="success">Activo</Badge> : <Badge>Inactivo</Badge>),
+      render: (plan) => planStatusBadge(plan, eps.active),
     },
     {
       key: 'actions',
@@ -253,13 +280,7 @@ export function EpsDetailPage() {
         onCancel={() => setToggling(null)}
         onConfirm={() => void confirmToggle()}
       >
-        {toggling !== null ? (
-          <p>
-            {toggling.active
-              ? `${toggling.name} dejará de ofrecerse para afiliaciones nuevas. Las afiliaciones existentes se conservan.`
-              : `${toggling.name} volverá a ofrecerse para afiliaciones nuevas.`}
-          </p>
-        ) : null}
+        {toggling !== null ? <p>{toggleConsequence(toggling, eps)}</p> : null}
       </ConfirmDialog>
 
       {toDelete !== null ? (

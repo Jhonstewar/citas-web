@@ -163,6 +163,47 @@ describe('lista de citas aprobadas (HU-020)', () => {
     await openAppointments(agendaScript(professionalAppointmentsScript([])));
     expect(await screen.findByText('No tienes citas aprobadas en este periodo')).not.toBeNull();
   });
+
+  it('el filtro de sede se deshabilita y lo explica mientras el perfil carga', async () => {
+    let releaseProfile: (response: Response) => void = () => undefined;
+    const pendingProfile = new Promise<Response>((resolve) => {
+      releaseProfile = resolve;
+    });
+    await openAppointments({
+      ...sessionScript('PROFESSIONAL'),
+      // Se clona en cada petición: el inicio del profesional también pide el perfil y un cuerpo
+      // solo se lee una vez.
+      'GET /api/professional/me': () => pendingProfile.then((response) => response.clone()),
+      'GET /api/professional/blocks': json(200, []),
+      ...professionalAppointmentsScript([STARTED]),
+    });
+
+    const site = await screen.findByLabelText('Sede');
+    expect((site as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.getByText('Cargando tus sedes…')).not.toBeNull();
+
+    releaseProfile(json(200, PROFILE));
+    await waitFor(() => expect((screen.getByLabelText('Sede') as HTMLSelectElement).disabled).toBe(false));
+    expect(screen.queryByText('Cargando tus sedes…')).toBeNull();
+    expect(
+      within(screen.getByLabelText('Sede')).getAllByRole('option').map((option) => option.textContent),
+    ).toEqual(['Todas las sedes', SITE_HIC.name, SITE_ICV.name]);
+  });
+
+  it('si el perfil falla, el filtro de sede dice por qué en vez de quedarse vacío', async () => {
+    await openAppointments({
+      ...sessionScript('PROFESSIONAL'),
+      'GET /api/professional/me': problem(503, 'Base de datos no disponible'),
+      'GET /api/professional/blocks': json(200, []),
+      ...professionalAppointmentsScript([STARTED]),
+    });
+
+    const site = await screen.findByLabelText('Sede');
+    await waitFor(() => expect((site as HTMLSelectElement).disabled).toBe(true));
+    expect(screen.getByText(/No pudimos cargar tus sedes/)).not.toBeNull();
+    // Las citas del periodo sí se listan: el filtro caído no tumba la pestaña.
+    expect(await screen.findByRole('article', { name: /Cita de Laura Gómez/ })).not.toBeNull();
+  });
 });
 
 describe('cierre de la atención (HU-021)', () => {
@@ -199,6 +240,31 @@ describe('cierre de la atención (HU-021)', () => {
 
     expect(await screen.findByText('Inasistencia registrada')).not.toBeNull();
     expect(calls.some((call) => call.path === '/api/professional/appointments/100/no-show')).toBe(true);
+  });
+
+  it('avisa de que el cierre cancela la reprogramación pendiente del paciente (D38)', async () => {
+    const withPending = professionalAppointment({ ...STARTED, pendingReschedule: true });
+    const other = professionalAppointment({
+      ...STARTED,
+      id: 103,
+      startTime: '07:30',
+      endTime: '08:30',
+      patient: { fullName: 'Pedro Díaz', documentType: 'CE', documentNumber: '555' },
+    });
+    await openAppointments(agendaScript(professionalAppointmentsScript([withPending, other])));
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Registrar inasistencia a la cita de Laura Gómez/ }),
+    );
+    const dialog = await screen.findByRole('alertdialog', { name: '¿Registrar inasistencia?' });
+    expect(within(dialog).getByText('solicitud de reprogramación pendiente')).not.toBeNull();
+    expect(within(dialog).getByText(/la franja que propuso quedará libre/)).not.toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+
+    // Sin reprogramación pendiente no se avisa de algo que no va a pasar.
+    fireEvent.click(screen.getByRole('button', { name: /Marcar como atendida la cita de Pedro Díaz/ }));
+    const second = await screen.findByRole('alertdialog', { name: '¿Marcar la cita como atendida?' });
+    expect(within(second).queryByText('solicitud de reprogramación pendiente')).toBeNull();
   });
 
   it('una cita que aún no empezó tiene los botones deshabilitados con el motivo visible', async () => {

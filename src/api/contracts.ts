@@ -477,6 +477,13 @@ export interface HistoryEntry {
   actorName?: string | null;
   reason?: string | null;
   changedAt: string;
+  /**
+   * S4 · D39 · Evento que explica la fila cuando el estado no cambió. El backend lo deriva sin
+   * esquema nuevo (una fila con el mismo estado que la anterior es una reprogramación aprobada) y
+   * lo omite si no aplica. La UI rotula la entrada "Reprogramada" en vez de repetir "Aprobada".
+   * Solo la aprobación escribe historial: el rechazo vive en `RescheduleRequest.decisionReason`.
+   */
+  event?: 'RESCHEDULED';
 }
 
 export interface AppointmentDetail extends Appointment {
@@ -493,8 +500,12 @@ export interface AppointmentDetail extends Appointment {
 /**
  * Cita vista por el ADMIN. `lastReschedule` llega por herencia del detalle; el contrato también
  * lo declara explícitamente aquí.
+ *
+ * `cancellable` y `reschedulable` **no** se heredan: son acciones del paciente y el backend solo
+ * las emite al paciente (aclaración 5 de S4, `AdminAppointmentResponse`). Declararlas aquí
+ * obligaba al fake y a cualquier consumidor a inventar un dato que la API real no manda.
  */
-export interface AdminAppointment extends AppointmentDetail {
+export interface AdminAppointment extends Omit<AppointmentDetail, 'cancellable' | 'reschedulable'> {
   patient: PatientRef;
 }
 
@@ -564,6 +575,12 @@ export interface ProfessionalAppointment {
   patient: ProfessionalPatientRef;
   /** `APPROVED` y ya empezó (D19): habilita COMPLETED / NO_SHOW. */
   closable: boolean;
+  /**
+   * S4 · D38 · El paciente tiene una solicitud de reprogramación `PENDING` sobre esta cita.
+   * Cerrar la atención (COMPLETED / NO_SHOW) la cancela y libera la franja propuesta, así que la
+   * confirmación del cierre debe advertirlo. Siempre presente.
+   */
+  pendingReschedule: boolean;
 }
 
 /** HU-020 · `from`/`to` obligatorios (máx. 62 días; un día = `from` igual a `to`). */

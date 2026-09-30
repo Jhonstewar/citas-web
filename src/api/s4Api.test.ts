@@ -223,6 +223,13 @@ describe('adminApi — reprogramaciones y EPS (HU-031, HU-012)', () => {
     expect(entry.reschedule.id).toBe(500);
   });
 
+  it('la cita del ADMIN no trae las acciones del paciente (aclaración 5 de S4)', () => {
+    // El backend solo emite `cancellable`/`reschedulable` al paciente: el tipo no las exige.
+    const keys = Object.keys(adminAppointment());
+    expect(keys).not.toContain('cancellable');
+    expect(keys).not.toContain('reschedulable');
+  });
+
   it('aprobar mueve la cita a la franja propuesta; decidir otra vez da 409 INVALID_TRANSITION', async () => {
     installBackend(adminRescheduleScript(inbox));
 
@@ -230,6 +237,8 @@ describe('adminApi — reprogramaciones y EPS (HU-031, HU-012)', () => {
 
     expect(moved).toMatchObject({ id: 100, date: reschedule.proposed.date, site: reschedule.proposed.site });
     expect(moved.lastReschedule?.status).toBe('APPROVED');
+    // D39: la aprobación escribe una fila con el mismo estado y `event = 'RESCHEDULED'`.
+    expect(moved.history.at(-1)).toMatchObject({ status: 'APPROVED', event: 'RESCHEDULED' });
 
     const error = await failure(adminApi.rejectReschedule(500, 'tarde'));
     expect(error.kind).toBe('conflict');
@@ -247,6 +256,19 @@ describe('adminApi — reprogramaciones y EPS (HU-031, HU-012)', () => {
 
     expect(error.kind).toBe('validation');
     expect(error.fieldErrors.reason).toBeDefined();
+  });
+
+  it('rechazar no toca la cita ni su historial: el motivo queda en la solicitud (D39)', async () => {
+    installBackend(adminRescheduleScript(inbox));
+
+    const kept = await adminApi.rejectReschedule(500, 'La agenda del profesional está llena');
+
+    expect(kept).toMatchObject({ id: 100, date: reschedule.previous.date, site: reschedule.previous.site });
+    expect(kept.history).toEqual([]);
+    expect(kept.lastReschedule).toMatchObject({
+      status: 'REJECTED',
+      decisionReason: 'La agenda del profesional está llena',
+    });
   });
 
   it('EPS: DUPLICATE con field, EPS_REFERENCED y PLAN_REFERENCED', async () => {
