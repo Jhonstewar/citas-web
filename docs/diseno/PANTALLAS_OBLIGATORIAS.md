@@ -212,9 +212,10 @@ Dos reglas transversales, válidas para las 17:
 - **Datos**: listado de profesionales con nombre, código profesional, matrícula,
   especialidades (marcando la primaria), sedes asignadas y estado activo/inactivo.
   Formulario de alta y edición con esos mismos campos.
-- **Acciones**: crear el usuario PROFESSIONAL; editar código y matrícula; asignar una o
-  varias especialidades y marcar la primaria; asignar una o ambas sedes; activar o
-  desactivar. **No hay borrado físico.**
+- **Acciones**: crear el usuario PROFESSIONAL; editar nombres, apellidos y teléfono (el
+  código profesional y la matrícula se fijan al crear y se muestran solo de lectura,
+  INC-015); asignar una o varias especialidades y marcar la primaria; asignar una o ambas
+  sedes; activar o desactivar. **No hay borrado físico.**
 - **Estados**: vacío · cargando · 400 de validación por campo · 409 por duplicado de
   documento, email o matrícula · 403 · confirmación explícita al desactivar, explicando
   que deja de poder publicar agenda.
@@ -236,35 +237,62 @@ Dos reglas transversales, válidas para las 17:
 
 ## Estado de implementación
 
-Estado real al cierre de S4 (2026-09-25). Las rutas son las de `src/App.tsx`; las rutas
-protegidas cuelgan de un prefijo por rol (`/paciente` USER, `/profesional` PROFESSIONAL,
-`/admin` ADMIN) y `/` redirige al inicio del rol. Todas las pantallas llevan el diseño aprobado
-de Stitch (S4).
+Estado real verificado el 2026-09-30 (F9 de S4) contra `src/App.tsx`, `src/app/navigation.ts` y
+las páginas de `src/pages/`. Las rutas protegidas cuelgan de un prefijo por rol (`/paciente`
+USER, `/profesional` PROFESSIONAL, `/admin` ADMIN); `/` redirige al inicio del rol e `/inicio`
+a `/`. Todas las pantallas llevan el diseño aprobado de Stitch. Estado de las 17: **17 de 17
+implementadas**; no hay pantallas pendientes ni pantallas en la app que no estén en el PRD.
 
-| § | Pantalla | Ruta en la app | Estado |
-| --- | --- | --- | --- |
-| 1 | Registro | `/registro` | Implementada (S2; plan de afiliación opcional en S4) |
-| 2 | Login | `/login` | Implementada (S2); con sesión ya abierta (p. ej. restaurada por la cookie, D36) redirige al inicio del rol o a la ruta de retorno (S4) |
-| 3 | Recuperación de contraseña, paso 1 | `/recuperar-password` | Implementada (S2; token de laboratorio HU-006 en S4) |
-| 3 | Recuperación de contraseña, paso 2 | `/restablecer-password?token=…` | Implementada (S4, HU-007) |
-| 4 | Home / dashboard USER | `/paciente` | Implementada (S3; cancelar la próxima cita en S4) |
-| 4 | Perfil y afiliación (acción de §4, RF-04) | `/paciente/perfil` | Implementada (S4, HU-008, HU-009) |
-| 5–6 | Buscar disponibilidad y solicitar cita | `/paciente/agendar` (asistente de 4 pasos) | Implementada (S3) |
-| 7 | Mis citas y detalle | `/paciente/citas`, `/paciente/citas/:id` | Implementada (S3; acciones e historial de reprogramación en S4, HU-028) |
-| 8 | Cancelar cita (diálogo) | sobre `/paciente/citas/:id` y `/paciente` | Implementada (S4, HU-026) |
-| 9 | Solicitar reprogramación | `/paciente/citas/:id/reprogramar` | Implementada (S4, HU-027) |
-| 10 | Dashboard PROFESSIONAL | `/profesional` | Implementada (S3) |
-| 11 | Gestionar bloques | `/profesional/agenda` (pestaña Bloques) | Implementada (S3) |
-| 12 | Agenda del profesional y cierre de atención | `/profesional/agenda?vista=citas` (pestaña Citas) | Implementada (S4, HU-020, HU-021) |
-| 13 | Dashboard ADMIN | `/admin` | Implementada (S3; contador de reprogramaciones en S4) |
-| 14 | Aprobar / rechazar citas | `/admin/solicitudes?tipo=APPOINTMENT_REQUEST` | Implementada (S3) |
-| 15 | Aprobar / rechazar reprogramaciones | `/admin/solicitudes?tipo=RESCHEDULE_REQUEST` | Implementada (S4, HU-029, HU-031) |
-| 16 | CRUD de profesionales | `/admin/profesionales`, `/admin/profesionales/nuevo`, `/admin/profesionales/:id` | Implementada (S3) |
-| 17 | CRUD de especialidades | `/admin/especialidades` | Implementada (S3) |
-| 17 | CRUD de EPS y planes | `/admin/eps`, `/admin/eps/:id` | Implementada (S4, HU-012) |
+| § | Pantalla | Ruta en la app | Archivo | Estado |
+| --- | --- | --- | --- | --- |
+| 1 | Registro | `/registro` | `pages/RegistroPage.tsx` | Implementada (S2; plan de afiliación opcional en S4) |
+| 2 | Login | `/login` | `pages/LoginPage.tsx` | Implementada (S2); con sesión abierta (p. ej. restaurada por la cookie, D36) redirige al inicio del rol o a la ruta de retorno |
+| 3 | Recuperación de contraseña, paso 1 | `/recuperar-password` | `pages/RecuperarPasswordPage.tsx` | Implementada (S2; token de laboratorio HU-006 en S4) |
+| 3 | Recuperación de contraseña, paso 2 | `/restablecer-password?token=…` | `pages/RestablecerPasswordPage.tsx` | Implementada (S4, HU-007) |
+| 4 | Home / dashboard USER | `/paciente` | `pages/patient/PatientHomePage.tsx` | Implementada (S3; cancelar la próxima cita en S4) |
+| 4 | Perfil y afiliación (acción de §4, RF-04) | `/paciente/perfil` | `pages/patient/ProfilePage.tsx` | Implementada (S4, HU-008, HU-009) |
+| 5–6 | Buscar disponibilidad y solicitar cita | `/paciente/agendar` (asistente de 4 pasos) | `pages/patient/booking/` | Implementada (S3) |
+| 7 | Mis citas | `/paciente/citas` (filtros en la consulta `estado` y `fecha`) | `pages/patient/MyAppointmentsPage.tsx` | Implementada (S3) |
+| 7 | Detalle de cita | `/paciente/citas/:id` | `pages/patient/AppointmentDetailPage.tsx` | Implementada (S3; acciones e historial de reprogramación en S4, HU-028) |
+| 8 | Cancelar cita (diálogo) | sobre `/paciente/citas/:id` y `/paciente` | `pages/patient/CancelAppointmentDialog.tsx` | Implementada (S4, HU-026) |
+| 9 | Solicitar reprogramación | `/paciente/citas/:id/reprogramar` | `pages/patient/ReschedulePage.tsx` | Implementada (S4, HU-027) |
+| 10 | Dashboard PROFESSIONAL | `/profesional` | `pages/professional/ProfessionalHomePage.tsx` | Implementada (S3) |
+| 11 | Gestionar bloques | `/profesional/agenda` (pestaña Bloques, la de por defecto) | `pages/professional/AgendaPage.tsx` | Implementada (S3) |
+| 12 | Agenda del profesional y cierre de atención | `/profesional/agenda?vista=citas` (pestaña Citas) | `pages/professional/AppointmentsPanel.tsx` | Implementada (S4, HU-020, HU-021) |
+| 13 | Dashboard ADMIN | `/admin` | `pages/admin/AdminDashboardPage.tsx` | Implementada (S3; contador de reprogramaciones en S4) |
+| 14 | Aprobar / rechazar citas | `/admin/solicitudes?tipo=APPOINTMENT_REQUEST` | `pages/admin/InboxPage.tsx` | Implementada (S3) |
+| 15 | Aprobar / rechazar reprogramaciones | `/admin/solicitudes?tipo=RESCHEDULE_REQUEST` | `pages/admin/InboxPage.tsx` | Implementada (S4, HU-029, HU-031) |
+| 16 | CRUD de profesionales | `/admin/profesionales`, `/admin/profesionales/nuevo`, `/admin/profesionales/:id` | `pages/admin/Professional*Page.tsx` | Implementada (S3) |
+| 17 | CRUD de especialidades | `/admin/especialidades` | `pages/admin/SpecialtiesPage.tsx` | Implementada (S3) |
+| 17 | CRUD de EPS y planes | `/admin/eps`, `/admin/eps/:id` | `pages/admin/EpsPage.tsx`, `EpsDetailPage.tsx` | Implementada (S4, HU-012) |
+
+Rutas de soporte que no son pantallas del PRD: no hay ruta `/prohibido` (el "Sin permiso"
+lo pinta `RequireRole` en el sitio, sin cerrar sesión); `*` dentro de un prefijo de rol muestra
+"no encontrada" dentro del marco (`InAppNotFoundPage`) y `*` fuera, la página 404 pública
+(`NotFoundPage`).
 
 Las bandejas de §14 y §15 son la misma pantalla (`InboxPage`) con el filtro "Tipo" en la
 consulta `tipo`; sin él, `/admin/solicitudes` muestra ambos tipos.
 
+### Estados y accesibilidad de las pantallas nuevas de S4 (revisión F9)
+
+Todas resuelven `cargando` (`LoadingSection`, con texto para lectores de pantalla y `aria-busy`),
+`vacío` (`EmptyState`, distinguiendo "sin datos" de "sin resultados con estos filtros" donde hay
+filtros), `error` (`ErrorState` con `role="alert"`, 403 como "Permiso insuficiente" y reintento) y
+`deshabilitado` (motivo visible y asociado con `aria-describedby`). Los diálogos (`Modal`,
+`ConfirmDialog`) usan `role="dialog"`/`"alertdialog"`, `aria-modal`, título asociado, foco inicial
+en la opción segura, foco atrapado, Escape y devolución del foco. Hallazgos corregidos en F9:
+
+- Los mensajes de error de campo (`TextField`, `SelectField`, `TextAreaField`, `ChoiceCards`,
+  `SegmentedControl`, selectores de profesional) ahora llevan `role="alert"`: antes aparecían
+  solo visualmente al enviar un formulario inválido.
+- `Modal`: si el botón enfocado se deshabilita con la petición en vuelo, el foco se recoge en el
+  panel (antes caía al `<body>` y Tab salía del diálogo); y si quien abrió el diálogo desaparece
+  (p. ej. "Cancelar cita" tras cancelar), el foco pasa a `#contenido` en vez de perderse.
+- Errores de listas auxiliares que eran texto plano ahora se anuncian como alerta: planes del
+  perfil (con "Reintentar"), sedes de la agenda del profesional, estados de "Mis citas" y opciones
+  de filtro de la bandeja.
+
 Rutas y tipos REST están centralizados en `src/api/contracts.ts` y se reconcilian contra los
-contratos de la wiki (`contrato-rest-identidad`, `contrato-rest-citas`).
+contratos de la wiki (`contrato-rest-identidad`, `contrato-rest-citas`) y los controladores de
+`citas-api`; `src/api/contracts.test.ts` fija la lista de códigos de error y de rutas del backend.

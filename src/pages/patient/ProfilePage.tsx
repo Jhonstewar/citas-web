@@ -220,12 +220,7 @@ function AffiliationCard({ user }: { user: UserResponse }) {
     plans.state.status === 'ready'
       ? plans.state.data.map((plan) => ({ value: String(plan.id), label: planLabel(plan) }))
       : [];
-  const hint =
-    plans.state.status === 'loading'
-      ? 'Cargando los planes de afiliación…'
-      : plans.state.status === 'error'
-        ? `No pudimos cargar los planes: ${plans.state.error.message}`
-        : undefined;
+  const hint = plans.state.status === 'loading' ? 'Cargando los planes de afiliación…' : undefined;
   const sameAsCurrent = current !== null && planId === String(current.plan.id);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -302,6 +297,13 @@ function AffiliationCard({ user }: { user: UserResponse }) {
 
         <form className="form" onSubmit={(event) => void handleSubmit(event)} noValidate>
           {failure !== null ? <FormAlert tone="error" title={failure} /> : null}
+          {plans.state.status === 'error' ? (
+            <FormAlert tone="error" title={`No pudimos cargar los planes: ${plans.state.error.message}`}>
+              <button type="button" className="button button--ghost button--sm" onClick={() => plans.reload()}>
+                Reintentar
+              </button>
+            </FormAlert>
+          ) : null}
           <SelectField
             label={current !== null ? 'Cambiar a otro plan' : 'Plan de afiliación'}
             name="insurancePlanId"

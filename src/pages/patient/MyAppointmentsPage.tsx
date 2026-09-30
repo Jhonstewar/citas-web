@@ -83,7 +83,7 @@ export function MyAppointmentsPage() {
               : null}
           </div>
           {statuses.state.status === 'error' ? (
-            <p className="field__hint">No se pudieron cargar los estados: {statuses.state.error.message}</p>
+            <p className="field__hint" role="alert">No se pudieron cargar los estados: {statuses.state.error.message}</p>
           ) : null}
         </div>
         <div className="field">

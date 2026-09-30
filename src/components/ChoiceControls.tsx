@@ -113,7 +113,7 @@ export function ChoiceCards<T extends string>({
         ))}
       </div>
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
@@ -184,7 +184,7 @@ export function SegmentedControl<T extends string>({
         </p>
       ) : null}
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
@@ -259,7 +259,7 @@ export function TextAreaField({
         ) : null}
       </div>
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}

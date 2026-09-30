@@ -82,7 +82,7 @@ export function SpecialtyPicker({
         })}
       </div>
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
@@ -128,7 +128,7 @@ export function SitePicker({
         ))}
       </div>
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}

@@ -60,7 +60,7 @@ export function SelectField({
         </p>
       ) : null}
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}

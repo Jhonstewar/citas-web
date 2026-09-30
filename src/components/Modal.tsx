@@ -79,11 +79,24 @@ export function Modal({
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus?.();
+      // Si el elemento que abrió el diálogo ya no existe (p. ej. "Cancelar cita" desaparece al
+      // cancelar), el foco iría al <body>: se lleva al contenido principal para no perder el lugar.
+      if (previouslyFocused?.isConnected === true) previouslyFocused.focus();
+      else document.getElementById('contenido')?.focus();
     };
     // Solo al abrir/cerrar: re-enfocar en cada render robaría el foco al escribir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Un control que se deshabilita mientras tiene el foco (el botón de enviar con la petición en
+  // vuelo) lo suelta al <body>: Tab saldría del diálogo hacia la página de detrás y Escape dejaría
+  // de llegar al panel. Se recoge el foco en el panel solo si quedó suelto, nunca si está en otro
+  // control (así no se roba el foco a quien escribe).
+  useEffect(() => {
+    if (!open) return;
+    const active = document.activeElement;
+    if (active === null || active === document.body) panelRef.current?.focus();
+  });
 
   if (!open) return null;
 

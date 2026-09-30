@@ -20,6 +20,7 @@ import { SegmentedControl } from '../../components/ChoiceControls';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
+import { FormAlert } from '../../components/FormAlert';
 import { SelectField } from '../../components/SelectField';
 import { LoadingSection } from '../../components/Skeleton';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -128,11 +129,7 @@ export function AppointmentsPanel({
   }
 
   const siteOptions = sites.map((site) => ({ value: String(site.id), label: site.name }));
-  const siteHint = sitesLoading
-    ? 'Cargando tus sedes…'
-    : sitesError !== null
-      ? `No pudimos cargar tus sedes: ${sitesError.message}`
-      : undefined;
+  const siteHint = sitesLoading ? 'Cargando tus sedes…' : undefined;
   const rangeLabel = view === 'day' ? formatLongDate(from) : formatRange(from, to);
   const isCurrent = view === 'day' ? anchor === today : from === startOfWeek(today);
 
@@ -156,6 +153,9 @@ export function AppointmentsPanel({
           onChange={(event) => setSiteId(event.target.value)}
         />
       </section>
+      {sitesError !== null ? (
+        <FormAlert tone="error" title={`No pudimos cargar tus sedes: ${sitesError.message}`} />
+      ) : null}
 
       <div className="week-nav">
         <div className="cluster">

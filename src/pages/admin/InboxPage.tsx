@@ -313,7 +313,7 @@ export function InboxPage() {
         ) : null}
       </section>
       {options.state.status === 'error' ? (
-        <p className="field__hint">No se pudieron cargar las opciones de filtro: {options.state.error.message}</p>
+        <p className="field__hint" role="alert">No se pudieron cargar las opciones de filtro: {options.state.error.message}</p>
       ) : null}
       {filters.type !== 'APPOINTMENT_REQUEST' && (filters.date !== '' || filters.siteId !== '') ? (
         <p className="field__hint">En las reprogramaciones, la fecha y la sede se aplican a la franja propuesta.</p>

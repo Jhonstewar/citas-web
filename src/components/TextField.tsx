@@ -44,7 +44,7 @@ export function TextField({ label, error, hint, required, ...inputProps }: TextF
         </p>
       ) : null}
       {error !== undefined ? (
-        <p className="field__error" id={errorId}>
+        <p className="field__error" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
