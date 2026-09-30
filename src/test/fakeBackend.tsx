@@ -10,6 +10,7 @@ import {
   type AuthTokensResponse,
   type Eps,
   type EpsPlan,
+  type HistoryEntry,
   type HourMinute,
   type InboxEntry,
   type InsuranceRef,
@@ -325,9 +326,15 @@ export function appointmentDetail(overrides: Partial<AppointmentDetail> = {}): A
   };
 }
 
+/**
+ * La misma cita vista por el ADMIN: con el bloque `patient` y **sin** `cancellable` ni
+ * `reschedulable`, que el backend solo emite al paciente (aclaración 5 de S4). El fake omite las
+ * claves para que ninguna prueba dependa de un dato que la API real no manda.
+ */
 export function adminAppointment(overrides: Partial<AdminAppointment> = {}): AdminAppointment {
+  const { cancellable: _cancellable, reschedulable: _reschedulable, ...detail } = appointmentDetail();
   return {
-    ...appointmentDetail(),
+    ...detail,
     patient: {
       id: 5,
       fullName: 'Laura Gómez',
@@ -551,6 +558,8 @@ export function professionalAppointmentsScript(initial: ProfessionalAppointment[
  * HU-029/HU-031, con estado. La bandeja filtra por `type`; en una reprogramación `date` y
  * `siteId` miran la franja propuesta (D24). Decidir: 404, 409 `INVALID_TRANSITION` si ya no está
  * `PENDING`, 400 sin motivo al rechazar. Aprobar mueve la cita a la franja propuesta.
+ * D39: solo la aprobación escribe fila de historial (`event: 'RESCHEDULED'`); el rechazo deja el
+ * motivo en la solicitud (`decisionReason`) y no toca la cita ni su historial.
  */
 export function adminRescheduleScript(initial: InboxEntry[]): Script {
   let entries = [...initial];
@@ -579,11 +588,28 @@ export function adminRescheduleScript(initial: InboxEntry[]): Script {
     const moved = approve
       ? { date: proposed.date, startTime: proposed.startTime, endTime: proposed.endTime, site: proposed.site }
       : {};
+    // D39: la aprobación deja una fila con el MISMO estado y `event = 'RESCHEDULED'`; el rechazo,
+    // ninguna.
+    const history: HistoryEntry[] = approve
+      ? [
+          ...entry.appointment.history,
+          {
+            status: entry.appointment.status,
+            statusName: entry.appointment.statusName,
+            source: 'ADMIN',
+            actorName: 'Marta Ruiz',
+            reason: `Reprogramada de ${entry.reschedule.previous.date} ${entry.reschedule.previous.startTime} a ${proposed.date} ${proposed.startTime}`,
+            changedAt: '2099-09-25T10:00:00',
+            event: 'RESCHEDULED',
+          },
+        ]
+      : entry.appointment.history;
     const appointment: AdminAppointment = {
       ...entry.appointment,
       ...moved,
       pendingReschedule: false,
       lastReschedule: decided,
+      history,
     };
     // La solicitud decidida se conserva (un segundo intento da INVALID_TRANSITION), pero sale de
     // la bandeja, que solo lista lo PENDING.

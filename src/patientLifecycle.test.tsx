@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AppointmentDetail } from './api/contracts';
+import type { AppointmentDetail, HistoryEntry } from './api/contracts';
 import {
   appointmentDetail,
   installBackend,
@@ -29,6 +29,15 @@ const SITES = [
   { ...SITE_HIC, address: 'Km 7 vía Piedecuesta', city: 'Piedecuesta', department: 'Santander' },
   { ...SITE_ICV, address: 'Calle 155A', city: 'Floridablanca', department: 'Santander' },
 ];
+
+/** Fila de historial de la aprobación de la cita (HU-032). */
+const APPROVAL_ROW: HistoryEntry = {
+  status: 'APPROVED',
+  statusName: 'Aprobada',
+  source: 'ADMIN',
+  actorName: 'Marta Ruiz',
+  changedAt: '2099-09-21T09:00:00',
+};
 
 function offer(site: typeof SITE_HIC, startTime: string, endTime: string) {
   return {
@@ -357,6 +366,21 @@ describe('estado de la reprogramación en el detalle y en Mis citas (HU-028)', (
     expect(window.sessionStorage.getItem('citas.reschedule-rejection-kept.500')).toBe('1');
   });
 
+  it('REJECTED con la cita ya empezada: no promete cancelar, porque no hay cómo', async () => {
+    // APPROVED pero con la hora ya cumplida: el backend no la deja cancelar (D17) y no hay botón.
+    await openDetail(lifecycle({ ...rejected(), cancellable: false, reschedulable: false }));
+
+    const notice = screen.getByRole('region', { name: 'Tu solicitud de reprogramación fue rechazada.' });
+    expect(within(notice).getByText('El profesional no atiende ese día')).not.toBeNull();
+    expect(within(notice).getByText(/ya no se puede cancelar/)).not.toBeNull();
+    expect(within(notice).queryByText(/conservar tu cita tal como está o cancelarla/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancelar cita' })).toBeNull();
+
+    // La única acción posible cierra el aviso; no escribe nada.
+    fireEvent.click(within(notice).getByRole('button', { name: 'Entendido' }));
+    expect(screen.queryByRole('region', { name: 'Tu solicitud de reprogramación fue rechazada.' })).toBeNull();
+  });
+
   it('REJECTED + cancelar: reutiliza el diálogo de cancelación', async () => {
     const calls = await openDetail(lifecycle(rejected()));
     const notice = screen.getByRole('region', { name: 'Tu solicitud de reprogramación fue rechazada.' });
@@ -382,6 +406,30 @@ describe('estado de la reprogramación en el detalle y en Mis citas (HU-028)', (
     expect(screen.getByText('Reprogramada desde')).not.toBeNull();
   });
 
+  it('el motivo del rechazo se muestra desde `decisionReason`, no desde el historial (D39)', async () => {
+    await openDetail(
+      lifecycle(
+        appointmentDetail({
+          history: [APPROVAL_ROW],
+          lastReschedule: rescheduleRequest({
+            status: 'REJECTED',
+            statusName: 'Rechazada',
+            decisionReason: 'La agenda del profesional está llena',
+            decidedAt: '2099-09-26T10:00:00',
+          }),
+        }),
+      ),
+    );
+
+    // El rechazo no escribe fila: el historial sigue teniendo solo la aprobación, sin motivo.
+    const history = screen.getByRole('region', { name: 'Historial' });
+    expect(within(history).getAllByText('Aprobada')).toHaveLength(1);
+    expect(within(history).queryByText(/Motivo:/)).toBeNull();
+
+    const notice = screen.getByRole('region', { name: 'Tu solicitud de reprogramación fue rechazada.' });
+    expect(within(notice).getByText('La agenda del profesional está llena')).not.toBeNull();
+  });
+
   it('Mis citas marca las citas con reprogramación pendiente', async () => {
     installBackend({
       ...lifecycle(appointmentDetail()),
@@ -394,5 +442,45 @@ describe('estado de la reprogramación en el detalle y en Mis citas (HU-028)', (
     await renderLoggedIn('Laura Gómez', '/paciente/citas');
     await screen.findByRole('heading', { level: 1, name: 'Mis citas' });
     await waitFor(() => expect(screen.getAllByText('Reprogramación pendiente')).toHaveLength(1));
+  });
+});
+
+describe('línea de tiempo del historial (HU-032, D39)', () => {
+  it('rotula "Reprogramada" la fila con `event = RESCHEDULED` en vez de repetir "Aprobada"', async () => {
+    await openDetail(
+      lifecycle(
+        appointmentDetail({
+          // D39: la aprobación de la reprogramación escribe una fila con el MISMO estado.
+          history: [
+            APPROVAL_ROW,
+            {
+              ...APPROVAL_ROW,
+              reason: 'Reprogramada del 1 de octubre 09:00 al 8 de octubre 09:00',
+              changedAt: '2099-09-25T10:00:00',
+              event: 'RESCHEDULED',
+            },
+          ],
+          lastReschedule: rescheduleRequest({ status: 'APPROVED', statusName: 'Aprobada' }),
+        }),
+      ),
+    );
+
+    const history = screen.getByRole('region', { name: 'Historial' });
+    const rows = within(history).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0] as HTMLElement).getByText('Aprobada')).not.toBeNull();
+    expect(within(rows[1] as HTMLElement).getByText('Reprogramada')).not.toBeNull();
+    expect(within(rows[1] as HTMLElement).queryByText('Aprobada')).toBeNull();
+    expect(
+      within(rows[1] as HTMLElement).getByText(/Motivo: Reprogramada del 1 de octubre/),
+    ).not.toBeNull();
+  });
+
+  it('sin `event` la fila conserva la etiqueta del estado', async () => {
+    await openDetail(lifecycle(appointmentDetail({ history: [APPROVAL_ROW] })));
+
+    const history = screen.getByRole('region', { name: 'Historial' });
+    expect(within(history).getByText('Aprobada')).not.toBeNull();
+    expect(within(history).queryByText('Reprogramada')).toBeNull();
   });
 });

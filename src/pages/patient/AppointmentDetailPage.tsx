@@ -345,6 +345,9 @@ function RescheduleNotice({
         </p>
       );
     }
+    // La cita sigue APPROVED pero su hora ya llegó: el backend no la deja cancelar (D17) y no hay
+    // botón. El aviso no puede ofrecer una elección que no existe, así que solo informa.
+    const canCancel = appointment.cancellable;
     return (
       <section className="note note--danger" aria-labelledby="reprogramacion-rechazada">
         <CircleX size={18} aria-hidden="true" />
@@ -357,13 +360,29 @@ function RescheduleNotice({
             {decisionReason !== '' ? <DetailItem label="Motivo">{decisionReason}</DetailItem> : null}
             <DetailItem label="Tu cita vigente">{current}</DetailItem>
           </DetailList>
-          <p>¿Qué quieres hacer? Puedes conservar tu cita tal como está o cancelarla.</p>
-          <div className="cluster">
-            <button type="button" className="button button--primary" onClick={onKeep}>
-              Conservar mi cita
-            </button>
-            {cancelButton}
-          </div>
+          {canCancel ? (
+            <>
+              <p>¿Qué quieres hacer? Puedes conservar tu cita tal como está o cancelarla.</p>
+              <div className="cluster">
+                <button type="button" className="button button--primary" onClick={onKeep}>
+                  Conservar mi cita
+                </button>
+                {cancelButton}
+              </div>
+            </>
+          ) : (
+            <>
+              <p>
+                Tu cita se mantiene en su franja actual. Su hora ya llegó, así que ya no se puede
+                cancelar.
+              </p>
+              <div className="cluster">
+                <button type="button" className="button button--primary" onClick={onKeep}>
+                  Entendido
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
     );
@@ -391,7 +410,11 @@ function RescheduleNotice({
   );
 }
 
-/** Traduce una entrada del historial de la API a los textos de la línea de tiempo. */
+/**
+ * Traduce una entrada del historial de la API a los textos de la línea de tiempo. D39: una fila
+ * con `event = 'RESCHEDULED'` no cambió el estado de la cita (sigue `APPROVED`), sino su franja:
+ * se rotula "Reprogramada" para no repetir "Aprobada".
+ */
 function toTimelineEntry(entry: HistoryEntry, index: number): TimelineEntry {
   const actor =
     entry.source === 'USER'
@@ -402,7 +425,7 @@ function toTimelineEntry(entry: HistoryEntry, index: number): TimelineEntry {
   return {
     id: `${entry.changedAt}-${index}`,
     status: entry.status,
-    label: statusLabel(entry.status, entry.statusName),
+    label: entry.event === 'RESCHEDULED' ? 'Reprogramada' : statusLabel(entry.status, entry.statusName),
     actor,
     reason: entry.reason,
     date: formatDateTime(entry.changedAt),
