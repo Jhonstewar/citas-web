@@ -379,6 +379,7 @@ export function professionalAppointment(
     specialty: SPECIALTY_CARDIO,
     patient: { fullName: 'Laura Gómez', documentType: 'CC', documentNumber: '1001' },
     closable: false,
+    pendingReschedule: false,
     ...overrides,
   };
 }
@@ -512,7 +513,8 @@ export function patientLifecycleScript(initial: AppointmentDetail): Script {
 /**
  * HU-020/HU-021, con estado. `GET` exige `from`/`to` y filtra por rango, sede y `APPROVED`.
  * Cerrar: 404 si no es suya, 409 `INVALID_TRANSITION` si no está `APPROVED`,
- * `APPOINTMENT_NOT_STARTED` si no es `closable`.
+ * `APPOINTMENT_NOT_STARTED` si no es `closable`. D38: el cierre cancela la solicitud de
+ * reprogramación `PENDING` del paciente, así que la cita cerrada ya no la tiene.
  */
 export function professionalAppointmentsScript(initial: ProfessionalAppointment[]): Script {
   let appointments = [...initial];
@@ -526,7 +528,13 @@ export function professionalAppointmentsScript(initial: ProfessionalAppointment[
     if (!current.closable) {
       return coded(409, ERROR_CODES.appointmentNotStarted, 'La cita todavía no ha empezado');
     }
-    const closed = { ...current, status: target, statusName: STATUS_NAMES[target], closable: false };
+    const closed = {
+      ...current,
+      status: target,
+      statusName: STATUS_NAMES[target],
+      closable: false,
+      pendingReschedule: false,
+    };
     appointments = appointments.map((appointment) => (appointment.id === id ? closed : appointment));
     return json(200, closed);
   };

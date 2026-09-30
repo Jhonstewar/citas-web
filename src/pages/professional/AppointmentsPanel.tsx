@@ -8,10 +8,11 @@ import {
   IdCard,
   MapPin,
   Timer,
+  TriangleAlert,
   UserRound,
 } from 'lucide-react';
 import { useState } from 'react';
-import { toApiError } from '../../api/ApiError';
+import { toApiError, type ApiError } from '../../api/ApiError';
 import type { IsoDate, ProfessionalAppointment, SiteRef } from '../../api/contracts';
 import { completeAppointment, listAppointments, markNoShow } from '../../api/professionalApi';
 import { DateBlock } from '../../components/AppointmentCard';
@@ -63,8 +64,20 @@ function patientLabel(appointment: ProfessionalAppointment): string {
  * El backend decide qué citas se listan (solo `APPROVED` y propias) y si una cita es cerrable
  * (`closable`, D19): la pantalla solo lo refleja. Una cita cerrada sale de la lista porque el
  * listado solo trae `APPROVED` (aclaración 6 del contrato S4).
+ *
+ * Las sedes del filtro vienen del perfil, que carga la página contenedora: mientras no llegan (o
+ * si falla) el selector no puede ofrecer nada, así que se deshabilita y lo explica en vez de
+ * parecer una lista vacía.
  */
-export function AppointmentsPanel({ sites }: { sites: readonly SiteRef[] }) {
+export function AppointmentsPanel({
+  sites,
+  sitesLoading,
+  sitesError,
+}: {
+  sites: readonly SiteRef[];
+  sitesLoading: boolean;
+  sitesError: ApiError | null;
+}) {
   const toast = useToast();
   const today = todayIso();
   const [view, setView] = useState<View>('day');
@@ -115,6 +128,11 @@ export function AppointmentsPanel({ sites }: { sites: readonly SiteRef[] }) {
   }
 
   const siteOptions = sites.map((site) => ({ value: String(site.id), label: site.name }));
+  const siteHint = sitesLoading
+    ? 'Cargando tus sedes…'
+    : sitesError !== null
+      ? `No pudimos cargar tus sedes: ${sitesError.message}`
+      : undefined;
   const rangeLabel = view === 'day' ? formatLongDate(from) : formatRange(from, to);
   const isCurrent = view === 'day' ? anchor === today : from === startOfWeek(today);
 
@@ -132,7 +150,9 @@ export function AppointmentsPanel({ sites }: { sites: readonly SiteRef[] }) {
           label="Sede"
           placeholder="Todas las sedes"
           options={siteOptions}
+          hint={siteHint}
           value={siteId}
+          disabled={sitesLoading || sitesError !== null}
           onChange={(event) => setSiteId(event.target.value)}
         />
       </section>
@@ -208,13 +228,27 @@ export function AppointmentsPanel({ sites }: { sites: readonly SiteRef[] }) {
         onConfirm={() => void confirmClose()}
       >
         {closing !== null ? (
-          <p>
-            La cita de <strong>{closing.appointment.specialty.name}</strong> de{' '}
-            {closing.appointment.patient.fullName} del {formatLongDate(closing.appointment.date)} a las{' '}
-            {closing.appointment.startTime} quedará registrada como{' '}
-            <strong>{closing.outcome === 'NO_SHOW' ? 'no asistió' : 'atendida'}</strong>. Este cierre no se
-            puede deshacer.
-          </p>
+          <>
+            <p>
+              La cita de <strong>{closing.appointment.specialty.name}</strong> de{' '}
+              {closing.appointment.patient.fullName} del {formatLongDate(closing.appointment.date)} a las{' '}
+              {closing.appointment.startTime} quedará registrada como{' '}
+              <strong>{closing.outcome === 'NO_SHOW' ? 'no asistió' : 'atendida'}</strong>. Este cierre no se
+              puede deshacer.
+            </p>
+            {/* D38: cerrar la atención cancela la reprogramación PENDING y libera la franja que
+                el paciente propuso. El profesional debe saberlo antes de confirmar. */}
+            {closing.appointment.pendingReschedule ? (
+              <p className="note note--warning">
+                <TriangleAlert size={18} aria-hidden="true" />
+                <span>
+                  {closing.appointment.patient.fullName} tiene una{' '}
+                  <strong>solicitud de reprogramación pendiente</strong> para esta cita: al cerrarla
+                  también se cancelará y la franja que propuso quedará libre.
+                </span>
+              </p>
+            ) : null}
+          </>
         ) : null}
       </ConfirmDialog>
     </div>

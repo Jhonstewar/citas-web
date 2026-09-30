@@ -575,6 +575,12 @@ export interface ProfessionalAppointment {
   patient: ProfessionalPatientRef;
   /** `APPROVED` y ya empezó (D19): habilita COMPLETED / NO_SHOW. */
   closable: boolean;
+  /**
+   * S4 · D38 · El paciente tiene una solicitud de reprogramación `PENDING` sobre esta cita.
+   * Cerrar la atención (COMPLETED / NO_SHOW) la cancela y libera la franja propuesta, así que la
+   * confirmación del cierre debe advertirlo. Siempre presente.
+   */
+  pendingReschedule: boolean;
 }
 
 /** HU-020 · `from`/`to` obligatorios (máx. 62 días; un día = `from` igual a `to`). */

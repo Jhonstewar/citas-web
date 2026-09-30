@@ -65,6 +65,9 @@ export function AgendaPage() {
 
   const sites = profile.state.status === 'ready' ? profile.state.data.sites : [];
   const canCreate = profile.state.status === 'ready';
+  // El perfil trae las sedes del filtro de la pestaña "Citas": sus estados viajan con ellas para
+  // que el selector no parezca vacío mientras carga ni tras un fallo.
+  const sitesError = profile.state.status === 'error' ? profile.state.error : null;
 
   function handleSaved(block: Block, created: boolean) {
     setEditing({ mode: 'closed' });
@@ -248,7 +251,13 @@ export function AgendaPage() {
             id: 'citas',
             label: 'Citas',
             icon: <CalendarCheck size={16} />,
-            content: <AppointmentsPanel sites={sites} />,
+            content: (
+              <AppointmentsPanel
+                sites={sites}
+                sitesLoading={profile.state.status === 'loading'}
+                sitesError={sitesError}
+              />
+            ),
           },
         ]}
       />

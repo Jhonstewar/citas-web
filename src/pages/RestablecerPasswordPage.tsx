@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { resetPassword } from '../api/authApi';
 import { DEFAULT_MESSAGE_BY_KIND, toApiError, type ApiError } from '../api/ApiError';
 import { ERROR_CODES } from '../api/contracts';
+import { useSession } from '../auth/useSession';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormAlert } from '../components/FormAlert';
 import { SubmitButton } from '../components/SubmitButton';
@@ -28,6 +29,11 @@ const POLICY_HINT = `Mínimo ${MIN_PASSWORD} caracteres, con al menos una letra 
  * API. La política D29 se valida aquí como ayuda; el servidor decide y su `fieldErrors.newPassword`
  * se muestra en el campo. Tras el éxito el backend revoca todas las sesiones: se vuelve a entrar.
  *
+ * Sesión (D34/D36): la ruta es pública, así que a ella puede llegar alguien con la sesión abierta.
+ * El servidor revoca todas las familias de refresh del usuario y la cookie muere, pero el access
+ * token de esta pestaña vive en memoria y seguiría sirviendo hasta caducar. Por eso el éxito cierra
+ * también la sesión local: es lo que promete el mensaje "cerramos las sesiones abiertas".
+ *
  * Seguridad: al montar, el token se copia al estado del componente y se quita de la barra de
  * direcciones reemplazando la entrada actual del historial (`navigate(..., { replace: true })`,
  * que usa `history.replaceState` por debajo y mantiene sincronizado al router). Así no queda en
@@ -43,8 +49,16 @@ export function RestablecerPasswordPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrorMap<ResetPasswordField>>({});
   const [status, setStatus] = useState<Status>('idle');
   const [failure, setFailure] = useState<ApiError | null>(null);
+  const { isAuthenticated, signOut } = useSession();
 
   const isLoading = status === 'loading';
+
+  // Se consulta al volver la respuesta, no en el render que lanzó la petición: el arranque (D36)
+  // puede haber restaurado la sesión mientras el formulario estaba en vuelo.
+  const hasSession = useRef(isAuthenticated);
+  useEffect(() => {
+    hasSession.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   // Quita `token` de la URL (conservando cualquier otro parámetro) sin añadir una entrada nueva.
   useEffect(() => {
@@ -84,6 +98,13 @@ export function RestablecerPasswordPage() {
       await resetPassword({ token, newPassword: values.newPassword });
       setValues(EMPTY_RESET_PASSWORD_FORM);
       setStatus('success');
+      // El servidor ya revocó todas las familias de refresh, pero el access token de esta pestaña
+      // seguiría sirviendo hasta caducar: se cierra la sesión con el mismo mecanismo que "Cerrar
+      // sesión" (`signOut` revoca en el servidor y borra la cookie). No navega, y esta ruta es
+      // pública, así que la confirmación de éxito se queda a la vista. Sin sesión local no hay
+      // nada que cerrar: quien abre el enlace del correo en un navegador sin sesión —el caso
+      // normal— no dispara ninguna petición extra.
+      if (hasSession.current) signOut();
     } catch (cause) {
       const error = toApiError(cause);
       setFailure(error);

@@ -5,6 +5,7 @@ import { App } from './App';
 import type { UserResponse } from './api/contracts';
 import {
   affiliation,
+  goTo,
   installBackend,
   insurancePlan,
   json,
@@ -273,6 +274,38 @@ describe('restablecer contraseña (HU-007)', () => {
       token: 'tok-1',
       newPassword: 'Nueva-clave1',
     });
+  });
+
+  it('con la sesión abierta, el éxito la cierra también en esta pestaña (D34/D36)', async () => {
+    const calls = installBackend({
+      ...sessionScript('USER'),
+      'GET /api/patient/appointments': json(200, []),
+      ...passwordScript({ validToken: 'tok-1' }),
+    });
+    await renderLoggedIn('Laura Gómez', '/restablecer-password?token=tok-1');
+    await screen.findByRole('heading', { name: 'Crea una nueva contraseña' });
+    fill('Nueva-clave1');
+
+    // Primero la confirmación: no se le echa a la calle sin decirle que funcionó.
+    expect(await screen.findByText('Tu contraseña se cambió correctamente.')).not.toBeNull();
+    expect(screen.getByText(/Por seguridad cerramos las sesiones abiertas/)).not.toBeNull();
+    // Y el cierre es real, no solo un mensaje: se revoca en el servidor…
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === '/api/auth/logout' && call.method === 'POST')).toBe(true),
+    );
+
+    // …y el access token de esta pestaña ya no sirve: una ruta protegida lleva al login.
+    goTo('/paciente/citas');
+    expect(await screen.findByRole('heading', { name: 'Inicia sesión' })).not.toBeNull();
+  });
+
+  it('sin sesión (el caso normal) el éxito no pide ningún logout', async () => {
+    const calls = openReset('/restablecer-password?token=tok-1', passwordScript({ validToken: 'tok-1' }));
+    await screen.findByRole('heading', { name: 'Crea una nueva contraseña' });
+    fill('Nueva-clave1');
+
+    expect(await screen.findByText('Tu contraseña se cambió correctamente.')).not.toBeNull();
+    expect(withoutBootRefresh(calls).map((call) => call.path)).toEqual(['/api/auth/password-reset']);
   });
 
   it('sin token en el enlace: lo explica y ofrece pedir otro', async () => {
